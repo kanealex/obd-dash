@@ -19,8 +19,12 @@ A web app (PWA) running in Chrome on a **Pixel 7** that reads live data from an 
 - Connects with `acceptAllDevices` and the candidate services `0xFFF0`, `0xFFE0`, `0x18F0`, `e7810a71-73ae-499d-8c15-faa9aef0c3f2`. It picks the first service that has both a notify and a write characteristic.
 - Command queue is serialised. Responses are buffered until the `>` prompt. Writes are chunked to 20 bytes.
 - Init sequence: `ATZ`, `ATE0`, `ATL0`, `ATS0`, `ATH0`, `ATAT1`, `ATSP0`, then `0100` (protocol search) and `ATDPN`. `ATSP6` (CAN 11-bit 500k) should work on the LC200 and is faster than auto-detect.
-- Polls Mode 01 PIDs 0C, 0D, 05, 0F, 04, 0B, plus `ATRV` for voltage. Skips a PID after 3 failed reads.
-- Screen Wake Lock, plus CSV download of the logged rows.
+- After init it reads the supported-PID bitmaps (0100/0120/0140…), then fuel type (51), OBD standard (1C), VIN (0902), and status/readiness (0101).
+- `PIDS` holds about 35 standard Mode 01 gauges, each tagged with a group (`GROUPS`). `fast` gauges are polled every cycle and the rest two per cycle in rotation. A PID is skipped after 3 failed reads. `DERIVED` adds boost (MAP − baro), instant economy (5E fuel rate, or MAF at stoichiometric for petrol only) and battery voltage (`ATRV`).
+- Tabs: Live (speed/RPM dials plus grouped tiles with 2-minute sparklines; tap one for a 1/5/15-minute chart), Trip (distance, time, averages, fuel, speed chart), Codes (Mode 03/07/0A with descriptions, per-code Hide, Clear all via Mode 04), Vehicle (VIN, protocol, readiness monitors), Settings (metric/imperial, refresh rate, gauge picker). Settings live in localStorage.
+- `DTC_TEXT` has about 520 generic SAE J2012 descriptions. Manufacturer codes fall back to a category from `dtcFallback()`. OBD-II has no per-code clear, so Hide is UI-only.
+- Multi-frame (ISO-TP `0:`/`1:`) responses are joined in `messages()`. Mode 03 parsing assumes a count byte on CAN protocols (6–C).
+- Screen Wake Lock, plus CSV download of the logged rows (metric units).
 - Auto-connect: on load, `navigator.bluetooth.getDevices()` returns adapters picked before; it reconnects to the last one (id in localStorage) without the picker, and retries every 5 s after an unexpected drop until Disconnect is tapped.
 - **Not yet tested on the car.**
 

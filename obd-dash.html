@@ -3,42 +3,107 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0d1117">
+<meta name="theme-color" content="#0b0f14">
 <title>OBD Dash</title>
 <style>
   :root {
-    --bg: #0d1117; --panel: #161b22; --line: #30363d;
-    --text: #e6edf3; --muted: #8b949e; --accent: #3fb950; --warn: #d29922; --bad: #f85149;
+    --bg: #0b0f14; --panel: #131920; --panel-2: #19212a; --line: #253039;
+    --text: #e8eef4; --muted: #8592a0; --faint: #4a5664;
+    --accent: #3fb950; --accent-soft: rgba(63,185,80,.16);
+    --warn: #d29922; --bad: #f85149; --bad-soft: rgba(248,81,73,.16);
   }
   * { box-sizing: border-box; }
+  html { -webkit-tap-highlight-color: transparent; }
   body {
-    margin: 0; background: var(--bg); color: var(--text);
+    margin: 0 auto; max-width: 1100px; background: var(--bg); color: var(--text);
     font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    padding: 16px; padding-bottom: calc(24px + env(safe-area-inset-bottom));
   }
-  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
-  h1 { font-size: 18px; margin: 0; flex: 1; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  h1 { font-size: 18px; margin: 0; flex: 1; letter-spacing: .01em; }
+  h2 { font-size: 12px; margin: 22px 2px 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
   .status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bad); }
-  .dot.on { background: var(--accent); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bad); }
+  .dot.on { background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
   .dot.busy { background: var(--warn); }
   button, select {
     background: var(--panel); color: var(--text); border: 1px solid var(--line);
-    border-radius: 8px; padding: 10px 14px; font-size: 15px;
+    border-radius: 10px; padding: 10px 14px; font: inherit; font-size: 15px;
   }
+  button { cursor: pointer; }
   button.primary { background: var(--accent); color: #04110a; border-color: var(--accent); font-weight: 600; }
-  button:disabled { opacity: .5; }
-  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
-  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
-  .tile .label { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
-  .tile .value { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; margin-top: 6px; }
-  .tile .unit { color: var(--muted); font-size: 14px; }
-  .tile.na .value { color: var(--muted); font-size: 24px; }
-  details { margin-top: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+  button.danger { border-color: var(--bad); color: var(--bad); background: none; }
+  button.ghost { background: none; border-color: transparent; color: var(--muted); padding: 6px 10px; }
+  button:disabled { opacity: .45; cursor: default; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs { display: flex; gap: 2px; overflow-x: auto; margin: 0 -16px 16px; padding: 0 16px; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+  .tabs button { border: 0; border-radius: 0; background: none; color: var(--muted); padding: 12px 14px; white-space: nowrap; }
+  .tabs button[aria-selected="true"] { color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+
+  /* Dials */
+  .hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+  .dial { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 10px 10px 4px; cursor: pointer; }
+  .dial svg { display: block; width: 100%; height: auto; }
+  .dial .track { fill: none; stroke: var(--panel-2); stroke-width: 12; stroke-linecap: round; }
+  .dial .fill { fill: none; stroke: var(--accent); stroke-width: 12; stroke-linecap: round; transition: stroke-dasharray .35s ease-out; }
+  .dial .num { fill: var(--text); font-size: 40px; font-weight: 700; text-anchor: middle; font-variant-numeric: tabular-nums; }
+  .dial .sub { fill: var(--muted); font-size: 13px; text-anchor: middle; text-transform: uppercase; letter-spacing: .08em; }
+
+  /* Tiles */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 10px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 12px 8px; cursor: pointer; min-width: 0; }
+  .tile:active { background: var(--panel-2); }
+  .tile .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile .reading { display: flex; align-items: baseline; gap: 5px; margin-top: 4px; }
+  .tile .value { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .tile .unit { color: var(--muted); font-size: 13px; }
+  .tile canvas { display: block; width: 100%; height: 34px; margin-top: 6px; }
+  .tile.na .value { color: var(--faint); font-size: 22px; }
+  .tile.alert { border-color: var(--bad); background: linear-gradient(var(--bad-soft), transparent 60%), var(--panel); }
+  .tile.alert .value { color: var(--bad); }
+  .tile.static { cursor: default; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 0; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; font-variant-numeric: tabular-nums; word-break: break-all; }
+  .chart-card canvas { display: block; width: 100%; height: 180px; }
+
+  .dtc { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; border-top: 1px solid var(--line); padding: 12px 0; }
+  .dtc:first-child { border-top: 0; padding-top: 0; }
+  .dtc .code { font: 700 18px ui-monospace, Menlo, Consolas, monospace; margin-right: 8px; }
+  .dtc .kind { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; vertical-align: 2px; }
+  .dtc .kind.Stored { color: var(--bad); border-color: var(--bad); }
+  .dtc .desc { grid-column: 1; }
+  .dtc .acts { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .dtc a { color: var(--accent); font-size: 14px; text-decoration: none; }
+  .ok { color: var(--accent); } .bad { color: var(--bad); } .muted { color: var(--muted); }
+  .pill { display: inline-flex; align-items: center; gap: 8px; }
+  .checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+  .checks label { display: flex; gap: 8px; align-items: center; }
+  .checks h3 { grid-column: 1 / -1; margin: 8px 0 0; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .checks h3:first-child { margin-top: 0; }
+  input[type="checkbox"] { accent-color: var(--accent); width: 18px; height: 18px; }
+
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 18px; padding: 16px; width: min(760px, calc(100vw - 24px)); }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  .dlg-head { display: flex; align-items: flex-start; gap: 12px; }
+  .dlg-head .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  .dlg-head .value { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  #dlgCanvas { display: block; width: 100%; height: 240px; margin: 12px 0; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+  .stats div { background: var(--panel-2); border-radius: 10px; padding: 8px; }
+  .stats b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+  .stats span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  .seg { display: inline-flex; background: var(--panel-2); border-radius: 10px; padding: 3px; gap: 2px; }
+  .seg button { border: 0; background: none; padding: 6px 12px; color: var(--muted); border-radius: 8px; font-size: 14px; }
+  .seg button[aria-pressed="true"] { background: var(--panel); color: var(--text); }
+
+  details { margin-top: 20px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; }
   summary { cursor: pointer; color: var(--muted); }
   #log { font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; max-height: 40vh; overflow: auto; margin-top: 8px; }
-  .notice { background: #3d1d1d; border: 1px solid var(--bad); border-radius: 8px; padding: 12px; margin-bottom: 16px; }
+  .notice { background: var(--bad-soft); border: 1px solid var(--bad); border-radius: 10px; padding: 12px; margin-bottom: 16px; }
+  .empty { color: var(--muted); text-align: center; padding: 28px 12px; }
 </style>
 </head>
 <body>
@@ -54,16 +119,89 @@
 <div class="controls">
   <button class="primary" id="connectBtn">Connect</button>
   <button id="disconnectBtn" disabled>Disconnect</button>
-  <select id="interval" aria-label="Poll interval">
-    <option value="0">As fast as possible</option>
-    <option value="500" selected>Every 0.5 s</option>
-    <option value="1000">Every 1 s</option>
-    <option value="2000">Every 2 s</option>
-  </select>
-  <button id="csvBtn" disabled>Download CSV</button>
 </div>
 
-<div class="grid" id="grid"></div>
+<nav class="tabs" role="tablist">
+  <button role="tab" data-tab="live" aria-selected="true">Live</button>
+  <button role="tab" data-tab="trip">Trip</button>
+  <button role="tab" data-tab="codes">Codes</button>
+  <button role="tab" data-tab="vehicle">Vehicle</button>
+  <button role="tab" data-tab="settings">Settings</button>
+</nav>
+
+<section id="tab-live">
+  <div class="hero" id="hero"></div>
+  <div id="groups"></div>
+  <p class="empty" id="liveHint">Connect to see the gauges your car supports. Tap any gauge for its chart.</p>
+</section>
+
+<section id="tab-trip" hidden>
+  <div class="grid" id="tripGrid"></div>
+  <h2>Speed this trip</h2>
+  <div class="card chart-card"><canvas id="tripChart"></canvas></div>
+  <div class="controls">
+    <button id="tripResetBtn">Reset trip</button>
+    <button id="csvBtn" disabled>Download CSV</button>
+  </div>
+  <p class="muted" id="fuelNote"></p>
+</section>
+
+<section id="tab-codes" hidden>
+  <div class="card"><span id="milText" class="muted">Check-engine light: unknown</span></div>
+  <div class="controls">
+    <button class="primary" id="readCodesBtn" disabled>Read codes</button>
+    <button class="danger" id="clearCodesBtn" disabled>Clear all codes</button>
+  </div>
+  <div class="card" id="dtcList"><span class="muted">No scan yet.</span></div>
+  <p class="muted" id="dtcNote"></p>
+</section>
+
+<section id="tab-vehicle" hidden>
+  <div class="card"><dl class="kv" id="vehInfo"></dl></div>
+  <h2>Readiness monitors</h2>
+  <div class="card"><dl class="kv" id="readiness"><dt class="muted">Not read yet</dt><dd></dd></dl></div>
+  <button id="vehRefreshBtn" disabled>Refresh</button>
+</section>
+
+<section id="tab-settings" hidden>
+  <div class="card">
+    <dl class="kv">
+      <dt>Units</dt>
+      <dd><select id="units"><option value="metric">Metric</option><option value="imperial">Imperial (US)</option></select></dd>
+      <dt>Refresh</dt>
+      <dd><select id="interval" aria-label="Poll interval">
+        <option value="0">As fast as possible</option>
+        <option value="500">Every 0.5 s</option>
+        <option value="1000">Every 1 s</option>
+        <option value="2000">Every 2 s</option>
+      </select></dd>
+    </dl>
+  </div>
+  <h2>Gauges to show</h2>
+  <p class="muted">Fewer gauges means faster updates. Once connected, only gauges your car reports are listed.</p>
+  <div class="card checks" id="gaugePicker"></div>
+</section>
+
+<dialog id="chartDlg">
+  <div class="dlg-head">
+    <div style="flex:1">
+      <div class="label" id="dlgLabel"></div>
+      <div><span class="value" id="dlgValue"></span> <span class="muted" id="dlgUnit"></span></div>
+    </div>
+    <button class="ghost" id="dlgClose" aria-label="Close">✕</button>
+  </div>
+  <canvas id="dlgCanvas"></canvas>
+  <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px">
+    <div class="seg" id="dlgRange">
+      <button data-s="60">1 min</button><button data-s="300" aria-pressed="true">5 min</button><button data-s="900">15 min</button>
+    </div>
+  </div>
+  <div class="stats">
+    <div><b id="dlgMin">–</b><span>Min</span></div>
+    <div><b id="dlgAvg">–</b><span>Avg</span></div>
+    <div><b id="dlgMax">–</b><span>Max</span></div>
+  </div>
+</dialog>
 
 <details>
   <summary>Log</summary>
@@ -79,51 +217,598 @@ const SERVICE_CANDIDATES = [
   'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Vgate / some clones
 ];
 
-// Mode 01 PIDs. f() receives the data bytes after "41 xx".
-const PIDS = [
-  { id: 'rpm',     label: 'RPM',         pid: '0C', unit: 'rpm',  n: 2, f: b => (b[0] * 256 + b[1]) / 4, dp: 0 },
-  { id: 'speed',   label: 'Speed',       pid: '0D', unit: 'km/h', n: 1, f: b => b[0], dp: 0 },
-  { id: 'coolant', label: 'Coolant',     pid: '05', unit: '°C',   n: 1, f: b => b[0] - 40, dp: 0 },
-  { id: 'iat',     label: 'Intake air',  pid: '0F', unit: '°C',   n: 1, f: b => b[0] - 40, dp: 0 },
-  { id: 'load',    label: 'Engine load', pid: '04', unit: '%',    n: 1, f: b => b[0] * 100 / 255, dp: 0 },
-  { id: 'map',     label: 'Manifold abs', pid: '0B', unit: 'kPa', n: 1, f: b => b[0], dp: 0 },
+const GROUPS = [
+  ['drive', 'Driving'], ['air', 'Air & boost'], ['fuel', 'Fuel'], ['temp', 'Temperatures'],
+  ['emis', 'Emissions'], ['elec', 'Electrical'], ['count', 'Counters'],
 ];
-const EXTRA = [{ id: 'volts', label: 'Battery', unit: 'V' }];
+
+// Standard SAE J1979 Mode 01 PIDs. f() receives the data bytes after "41 xx".
+// u: unit kind (converted for imperial) or a literal unit string.
+// fast: polled every cycle; the rest are polled a couple per cycle in rotation.
+// warn: metric value that turns the tile red. hero: shown as a dial.
+const u16 = b => b[0] * 256 + b[1];
+const pct = b => b[0] * 100 / 255;
+const trim = b => (b[0] - 128) * 100 / 128;
+const PIDS = [
+  { id: 'speed',    label: 'Speed',            g: 'drive', pid: '0D', u: 'speed', n: 1, f: b => b[0], dp: 0, fast: true, hero: true },
+  { id: 'rpm',      label: 'RPM',              g: 'drive', pid: '0C', u: 'rpm',  n: 2, f: b => u16(b) / 4, dp: 0, fast: true, hero: true },
+  { id: 'throttle', label: 'Throttle',         g: 'drive', pid: '11', u: '%',    n: 1, f: pct, dp: 0, fast: true },
+  { id: 'pedal',    label: 'Accel pedal',      g: 'drive', pid: '49', u: '%',    n: 1, f: pct, dp: 0, fast: true },
+  { id: 'load',     label: 'Engine load',      g: 'drive', pid: '04', u: '%',    n: 1, f: pct, dp: 0, fast: true },
+  { id: 'torque',   label: 'Engine torque',    g: 'drive', pid: '62', u: '%',    n: 1, f: b => b[0] - 125, dp: 0 },
+  { id: 'map',      label: 'Manifold pressure', g: 'air',  pid: '0B', u: 'pres', n: 1, f: b => b[0], dp: 0, fast: true },
+  { id: 'maf',      label: 'Mass air flow',    g: 'air',   pid: '10', u: 'g/s',  n: 2, f: b => u16(b) / 100, dp: 1, fast: true },
+  { id: 'timing',   label: 'Timing advance',   g: 'air',   pid: '0E', u: '°',    n: 1, f: b => b[0] / 2 - 64, dp: 1 },
+  { id: 'baro',     label: 'Barometric',       g: 'air',   pid: '33', u: 'pres', n: 1, f: b => b[0], dp: 0 },
+  { id: 'fuelrate', label: 'Fuel rate',        g: 'fuel',  pid: '5E', u: 'flow', n: 2, f: b => u16(b) / 20, dp: 1, fast: true },
+  { id: 'fuel',     label: 'Fuel level',       g: 'fuel',  pid: '2F', u: '%',    n: 1, f: pct, dp: 0, warn: v => v < 10 },
+  { id: 'stft1',    label: 'Short trim B1',    g: 'fuel',  pid: '06', u: '%',    n: 1, f: trim, dp: 1, warn: v => Math.abs(v) > 20 },
+  { id: 'ltft1',    label: 'Long trim B1',     g: 'fuel',  pid: '07', u: '%',    n: 1, f: trim, dp: 1, warn: v => Math.abs(v) > 15 },
+  { id: 'stft2',    label: 'Short trim B2',    g: 'fuel',  pid: '08', u: '%',    n: 1, f: trim, dp: 1, warn: v => Math.abs(v) > 20 },
+  { id: 'ltft2',    label: 'Long trim B2',     g: 'fuel',  pid: '09', u: '%',    n: 1, f: trim, dp: 1, warn: v => Math.abs(v) > 15 },
+  { id: 'fuelpres', label: 'Fuel pressure',    g: 'fuel',  pid: '0A', u: 'pres', n: 1, f: b => b[0] * 3, dp: 0 },
+  { id: 'railpres', label: 'Fuel rail',        g: 'fuel',  pid: '23', u: 'pres', n: 2, f: b => u16(b) * 10, dp: 0 },
+  { id: 'lambda',   label: 'Commanded λ',      g: 'fuel',  pid: '44', u: 'λ',    n: 2, f: b => u16(b) * 2 / 65536, dp: 2 },
+  { id: 'coolant',  label: 'Coolant',          g: 'temp',  pid: '05', u: 'temp', n: 1, f: b => b[0] - 40, dp: 0, warn: v => v > 105 },
+  { id: 'oil',      label: 'Oil',              g: 'temp',  pid: '5C', u: 'temp', n: 1, f: b => b[0] - 40, dp: 0, warn: v => v > 130 },
+  { id: 'iat',      label: 'Intake air',       g: 'temp',  pid: '0F', u: 'temp', n: 1, f: b => b[0] - 40, dp: 0, warn: v => v > 70 },
+  { id: 'ambient',  label: 'Outside air',      g: 'temp',  pid: '46', u: 'temp', n: 1, f: b => b[0] - 40, dp: 0 },
+  { id: 'cat',      label: 'Catalyst',         g: 'temp',  pid: '3C', u: 'temp', n: 2, f: b => u16(b) / 10 - 40, dp: 0 },
+  { id: 'o2b1s1',   label: 'O2 B1 S1',         g: 'emis',  pid: '14', u: 'V',    n: 1, f: b => b[0] / 200, dp: 2 },
+  { id: 'o2b1s2',   label: 'O2 B1 S2',         g: 'emis',  pid: '15', u: 'V',    n: 1, f: b => b[0] / 200, dp: 2 },
+  { id: 'o2b2s1',   label: 'O2 B2 S1',         g: 'emis',  pid: '18', u: 'V',    n: 1, f: b => b[0] / 200, dp: 2 },
+  { id: 'o2b2s2',   label: 'O2 B2 S2',         g: 'emis',  pid: '19', u: 'V',    n: 1, f: b => b[0] / 200, dp: 2 },
+  { id: 'egr',      label: 'Commanded EGR',    g: 'emis',  pid: '2C', u: '%',    n: 1, f: pct, dp: 0 },
+  { id: 'ecuvolts', label: 'ECU voltage',      g: 'elec',  pid: '42', u: 'V',    n: 2, f: b => u16(b) / 1000, dp: 1 },
+  { id: 'absload',  label: 'Absolute load',    g: 'count', pid: '43', u: '%',    n: 2, f: b => u16(b) * 100 / 255, dp: 0 },
+  { id: 'relthr',   label: 'Relative throttle', g: 'count', pid: '45', u: '%',   n: 1, f: pct, dp: 0 },
+  { id: 'runtime',  label: 'Run time',         g: 'count', pid: '1F', u: 'time', n: 2, f: u16, dp: 0 },
+  { id: 'milDist',  label: 'Dist with MIL on', g: 'count', pid: '21', u: 'dist', n: 2, f: u16, dp: 0 },
+  { id: 'clrDist',  label: 'Dist since clear', g: 'count', pid: '31', u: 'dist', n: 2, f: u16, dp: 0 },
+];
+// Values worked out in the app rather than read from one PID.
+const DERIVED = [
+  { id: 'boost', label: 'Boost',       g: 'air',  u: 'pres', dp: 0, needs: ['map'] },
+  { id: 'econ',  label: 'Economy now', g: 'fuel', u: 'econ', dp: 1, needs: [] },
+  { id: 'volts', label: 'Battery',     g: 'elec', u: 'V',    dp: 1, needs: [], warn: v => v < 11.8 || v > 15 },
+];
+const GAUGES = [...PIDS, ...DERIVED];
+const gauge = id => GAUGES.find(x => x.id === id);
+const DEFAULT_HIDDEN = ['o2b1s2', 'o2b2s1', 'o2b2s2', 'lambda', 'absload', 'relthr', 'torque', 'milDist', 'clrDist', 'baro', 'stft2', 'ltft2', 'ecuvolts'];
+
+const UNITS = {
+  speed: { m: 'km/h',    i: 'mph',   f: v => v * 0.621371 },
+  dist:  { m: 'km',      i: 'mi',    f: v => v * 0.621371 },
+  temp:  { m: '°C',      i: '°F',    f: v => v * 9 / 5 + 32 },
+  pres:  { m: 'kPa',     i: 'psi',   f: v => v * 0.145038, idp: 1 },
+  econ:  { m: 'L/100km', i: 'mpg',   f: v => v > 0 ? 235.215 / v : 0 },
+  vol:   { m: 'L',       i: 'gal',   f: v => v * 0.264172, idp: 2 },
+  flow:  { m: 'L/h',     i: 'gal/h', f: v => v * 0.264172, idp: 2 },
+};
+
+const PROTOCOLS = {
+  1: 'SAE J1850 PWM', 2: 'SAE J1850 VPW', 3: 'ISO 9141-2', 4: 'ISO 14230-4 KWP (5 baud)',
+  5: 'ISO 14230-4 KWP (fast)', 6: 'CAN 11-bit 500k', 7: 'CAN 29-bit 500k', 8: 'CAN 11-bit 250k',
+  9: 'CAN 29-bit 250k', A: 'SAE J1939 CAN', B: 'User CAN 1', C: 'User CAN 2',
+};
+const FUEL_TYPES = ['n/a', 'Petrol', 'Methanol', 'Ethanol', 'Diesel', 'LPG', 'CNG', 'Propane', 'Electric',
+  'Bi-fuel petrol', 'Bi-fuel methanol', 'Bi-fuel ethanol', 'Bi-fuel LPG', 'Bi-fuel CNG', 'Bi-fuel propane',
+  'Bi-fuel electric', 'Bi-fuel electric/combustion', 'Hybrid petrol', 'Hybrid ethanol', 'Hybrid diesel',
+  'Hybrid electric', 'Hybrid electric/combustion', 'Hybrid regenerative', 'Bi-fuel diesel'];
+const OBD_STANDARDS = { 1: 'OBD-II (CARB)', 2: 'OBD (EPA)', 3: 'OBD and OBD-II', 4: 'OBD-I', 5: 'Not OBD compliant',
+  6: 'EOBD (Europe)', 7: 'EOBD and OBD-II', 8: 'EOBD and OBD', 9: 'EOBD, OBD and OBD-II', 10: 'JOBD (Japan)',
+  11: 'JOBD and OBD-II', 12: 'JOBD and EOBD', 13: 'JOBD, EOBD and OBD-II', 17: 'EMD', 18: 'EMD+',
+  19: 'HD OBD-C', 20: 'HD OBD', 21: 'WWH OBD', 23: 'HD EOBD-I', 24: 'HD EOBD-I N', 25: 'HD EOBD-II',
+  26: 'HD EOBD-II N', 28: 'OBDBr-1', 29: 'OBDBr-2', 30: 'KOBD', 31: 'IOBD I', 32: 'IOBD II', 33: 'HD EOBD-IV' };
+
+// ---------- Trouble code descriptions (generic SAE J2012 codes) ----------
+// Manufacturer-specific codes (P1xxx, P3xxx, B1/C1/U1…) differ by make, so
+// those fall back to dtcFallback() and the "Look it up" link.
+const DTC_TEXT = {};
+const dtc = (code, text) => { DTC_TEXT[code] = text; };
+const pd = n => 'P' + String(n).padStart(4, '0'); // pd(420) = 'P0420'
+const FAM5 = ['circuit', 'circuit range/performance', 'circuit low', 'circuit high', 'circuit intermittent'];
+// A sensor whose codes run circuit, range/performance, low, high[, intermittent].
+const family = (start, name, count = 5) => FAM5.slice(0, count).forEach((s, i) => dtc(pd(start + i), `${name} ${s}`));
+
+Object.entries({
+  P0001: 'Fuel volume regulator control circuit/open', P0002: 'Fuel volume regulator control range/performance',
+  P0003: 'Fuel volume regulator control circuit low', P0004: 'Fuel volume regulator control circuit high',
+  P0010: 'Camshaft A actuator circuit (bank 1)', P0011: 'Camshaft A timing over-advanced or system performance (bank 1)',
+  P0012: 'Camshaft A timing over-retarded (bank 1)', P0013: 'Camshaft B actuator circuit (bank 1)',
+  P0014: 'Camshaft B timing over-advanced or system performance (bank 1)', P0015: 'Camshaft B timing over-retarded (bank 1)',
+  P0016: 'Crankshaft/camshaft position correlation (bank 1 sensor A)', P0017: 'Crankshaft/camshaft position correlation (bank 1 sensor B)',
+  P0018: 'Crankshaft/camshaft position correlation (bank 2 sensor A)', P0019: 'Crankshaft/camshaft position correlation (bank 2 sensor B)',
+  P0020: 'Camshaft A actuator circuit (bank 2)', P0021: 'Camshaft A timing over-advanced or system performance (bank 2)',
+  P0022: 'Camshaft A timing over-retarded (bank 2)', P0023: 'Camshaft B actuator circuit (bank 2)',
+  P0024: 'Camshaft B timing over-advanced or system performance (bank 2)', P0025: 'Camshaft B timing over-retarded (bank 2)',
+  P0030: 'O2 sensor heater control circuit (bank 1 sensor 1)', P0031: 'O2 sensor heater control circuit low (bank 1 sensor 1)',
+  P0032: 'O2 sensor heater control circuit high (bank 1 sensor 1)', P0033: 'Turbo/supercharger bypass valve control circuit',
+  P0034: 'Turbo/supercharger bypass valve control circuit low', P0035: 'Turbo/supercharger bypass valve control circuit high',
+  P0036: 'O2 sensor heater control circuit (bank 1 sensor 2)', P0037: 'O2 sensor heater control circuit low (bank 1 sensor 2)',
+  P0038: 'O2 sensor heater control circuit high (bank 1 sensor 2)', P0040: 'O2 sensor signals swapped (bank 1 sensor 1 / bank 2 sensor 1)',
+  P0041: 'O2 sensor signals swapped (bank 1 sensor 2 / bank 2 sensor 2)', P0045: 'Turbo/supercharger boost control solenoid circuit/open',
+  P0050: 'O2 sensor heater control circuit (bank 2 sensor 1)', P0051: 'O2 sensor heater control circuit low (bank 2 sensor 1)',
+  P0052: 'O2 sensor heater control circuit high (bank 2 sensor 1)', P0056: 'O2 sensor heater control circuit (bank 2 sensor 2)',
+  P0057: 'O2 sensor heater control circuit low (bank 2 sensor 2)', P0058: 'O2 sensor heater control circuit high (bank 2 sensor 2)',
+  P0068: 'MAP/MAF to throttle position correlation', P0069: 'Manifold pressure to barometric pressure correlation',
+  P0075: 'Intake valve control solenoid circuit (bank 1)', P0076: 'Intake valve control solenoid circuit low (bank 1)',
+  P0077: 'Intake valve control solenoid circuit high (bank 1)',
+  P0087: 'Fuel rail/system pressure too low', P0088: 'Fuel rail/system pressure too high',
+  P0089: 'Fuel pressure regulator 1 performance', P0090: 'Fuel pressure regulator 1 control circuit',
+  P0091: 'Fuel pressure regulator 1 control circuit low', P0092: 'Fuel pressure regulator 1 control circuit high',
+  P0093: 'Fuel system large leak detected', P0094: 'Fuel system small leak detected',
+  P0125: 'Coolant temperature too low for closed-loop fuel control', P0126: 'Coolant temperature too low for stable operation',
+  P0127: 'Intake air temperature too high', P0128: 'Coolant thermostat (below regulating temperature)',
+  P0170: 'Fuel trim (bank 1)', P0171: 'System too lean (bank 1)', P0172: 'System too rich (bank 1)',
+  P0173: 'Fuel trim (bank 2)', P0174: 'System too lean (bank 2)', P0175: 'System too rich (bank 2)',
+  P0200: 'Injector circuit/open', P0213: 'Cold start injector 1', P0215: 'Engine shutoff solenoid',
+  P0216: 'Injection timing control circuit', P0217: 'Engine overheat condition',
+  P0218: 'Transmission fluid over-temperature', P0219: 'Engine overspeed condition',
+  P0230: 'Fuel pump primary circuit', P0231: 'Fuel pump secondary circuit low', P0232: 'Fuel pump secondary circuit high',
+  P0234: 'Turbo/supercharger overboost', P0243: 'Turbo/supercharger wastegate solenoid A', P0299: 'Turbo/supercharger underboost',
+  P0300: 'Random/multiple cylinder misfire detected', P0313: 'Misfire detected with low fuel',
+  P0314: 'Single cylinder misfire (cylinder not specified)', P0315: 'Crankshaft position system variation not learned',
+  P0320: 'Ignition/distributor engine speed input circuit', P0350: 'Ignition coil primary/secondary circuit',
+  P0370: 'Timing reference high-resolution signal A', P0380: 'Glow plug/heater circuit A',
+  P0381: 'Glow plug/heater indicator circuit', P0382: 'Glow plug/heater circuit B',
+  P0400: 'EGR flow', P0401: 'EGR flow insufficient', P0402: 'EGR flow excessive', P0403: 'EGR control circuit',
+  P0404: 'EGR control circuit range/performance', P0405: 'EGR sensor A circuit low', P0406: 'EGR sensor A circuit high',
+  P0407: 'EGR sensor B circuit low', P0408: 'EGR sensor B circuit high', P0409: 'EGR sensor A circuit',
+  P0410: 'Secondary air injection system', P0411: 'Secondary air injection incorrect flow',
+  P0412: 'Secondary air injection switching valve A circuit', P0413: 'Secondary air injection switching valve A circuit open',
+  P0414: 'Secondary air injection switching valve A circuit shorted', P0418: 'Secondary air injection relay A circuit',
+  P0420: 'Catalyst efficiency below threshold (bank 1)', P0421: 'Warm-up catalyst efficiency below threshold (bank 1)',
+  P0422: 'Main catalyst efficiency below threshold (bank 1)', P0430: 'Catalyst efficiency below threshold (bank 2)',
+  P0431: 'Warm-up catalyst efficiency below threshold (bank 2)', P0432: 'Main catalyst efficiency below threshold (bank 2)',
+  P0440: 'Evaporative emission (EVAP) system', P0441: 'EVAP system incorrect purge flow', P0442: 'EVAP system small leak',
+  P0443: 'EVAP purge control valve circuit', P0444: 'EVAP purge control valve circuit open',
+  P0445: 'EVAP purge control valve circuit shorted', P0446: 'EVAP vent control circuit',
+  P0447: 'EVAP vent control circuit open', P0448: 'EVAP vent control circuit shorted',
+  P0449: 'EVAP vent valve/solenoid circuit', P0455: 'EVAP system large leak', P0456: 'EVAP system very small leak',
+  P0457: 'EVAP leak (fuel cap loose/off)', P0480: 'Cooling fan 1 control circuit', P0481: 'Cooling fan 2 control circuit',
+  P0482: 'Cooling fan 3 control circuit', P0489: 'EGR control circuit low', P0490: 'EGR control circuit high',
+  P0491: 'Secondary air injection system (bank 1)', P0492: 'Secondary air injection system (bank 2)',
+  P0496: 'EVAP high purge flow', P0497: 'EVAP low purge flow',
+  P0500: 'Vehicle speed sensor A', P0501: 'Vehicle speed sensor A range/performance', P0502: 'Vehicle speed sensor A circuit low',
+  P0503: 'Vehicle speed sensor A intermittent/erratic/high', P0505: 'Idle air control system',
+  P0506: 'Idle speed lower than expected', P0507: 'Idle speed higher than expected',
+  P0508: 'Idle air control circuit low', P0509: 'Idle air control circuit high', P0510: 'Closed throttle position switch',
+  P0524: 'Engine oil pressure too low', P0540: 'Intake air heater A circuit', P0550: 'Power steering pressure sensor circuit',
+  P0560: 'System voltage', P0561: 'System voltage unstable', P0562: 'System voltage low', P0563: 'System voltage high',
+  P0565: 'Cruise control on signal', P0571: 'Brake switch A circuit',
+  P0600: 'Serial communication link', P0601: 'Control module memory checksum error', P0602: 'Control module programming error',
+  P0603: 'Control module keep-alive memory error', P0604: 'Control module RAM error', P0605: 'Control module ROM error',
+  P0606: 'Control module processor', P0607: 'Control module performance', P0610: 'Control module vehicle options error',
+  P0615: 'Starter relay circuit', P0620: 'Generator control circuit', P0621: 'Generator lamp/L terminal circuit',
+  P0622: 'Generator field/F terminal circuit', P0627: 'Fuel pump A control circuit/open',
+  P0628: 'Fuel pump A control circuit low', P0629: 'Fuel pump A control circuit high',
+  P0630: 'VIN not programmed or mismatch (ECM/PCM)', P0638: 'Throttle actuator control range/performance (bank 1)',
+  P0641: 'Sensor reference voltage A circuit/open', P0645: 'A/C clutch relay control circuit',
+  P0650: 'Malfunction indicator lamp (MIL) control circuit', P0651: 'Sensor reference voltage B circuit/open',
+  P0670: 'Glow plug control module circuit', P0685: 'ECM/PCM power relay control circuit/open',
+  P0688: 'ECM/PCM power relay sense circuit/open',
+  P0700: 'Transmission control system (read the TCM codes)', P0701: 'Transmission control system range/performance',
+  P0702: 'Transmission control system electrical', P0703: 'Brake switch B circuit',
+  P0715: 'Input/turbine speed sensor A circuit', P0716: 'Input/turbine speed sensor A range/performance',
+  P0717: 'Input/turbine speed sensor A no signal', P0720: 'Output speed sensor circuit',
+  P0721: 'Output speed sensor range/performance', P0722: 'Output speed sensor no signal',
+  P0725: 'Engine speed input circuit', P0730: 'Incorrect gear ratio', P0736: 'Reverse incorrect gear ratio',
+  P0740: 'Torque converter clutch circuit', P0741: 'Torque converter clutch performance or stuck off',
+  P0742: 'Torque converter clutch stuck on', P0743: 'Torque converter clutch electrical',
+  P0744: 'Torque converter clutch intermittent', P0745: 'Pressure control solenoid A',
+  P0746: 'Pressure control solenoid A performance or stuck off', P0747: 'Pressure control solenoid A stuck on',
+  P0748: 'Pressure control solenoid A electrical', P0780: 'Shift error', P0781: '1-2 shift', P0782: '2-3 shift',
+  P0783: '3-4 shift', P0784: '4-5 shift', P0A80: 'Replace hybrid battery pack',
+  P2002: 'Particulate filter efficiency below threshold (bank 1)', P2003: 'Particulate filter efficiency below threshold (bank 2)',
+  P2004: 'Intake manifold runner control stuck open (bank 1)', P2096: 'Post-catalyst fuel trim too lean (bank 1)',
+  P2097: 'Post-catalyst fuel trim too rich (bank 1)', P2098: 'Post-catalyst fuel trim too lean (bank 2)',
+  P2099: 'Post-catalyst fuel trim too rich (bank 2)', P2101: 'Throttle actuator control motor circuit range/performance',
+  P2111: 'Throttle actuator control system stuck open', P2112: 'Throttle actuator control system stuck closed',
+  P2122: 'Pedal position sensor D circuit low', P2123: 'Pedal position sensor D circuit high',
+  P2127: 'Pedal position sensor E circuit low', P2128: 'Pedal position sensor E circuit high',
+  P2135: 'Throttle/pedal position sensor A/B voltage correlation', P2138: 'Throttle/pedal position sensor D/E voltage correlation',
+  P2187: 'System too lean at idle (bank 1)', P2188: 'System too rich at idle (bank 1)',
+  P2189: 'System too lean at idle (bank 2)', P2190: 'System too rich at idle (bank 2)',
+  P2195: 'O2 sensor signal stuck lean (bank 1 sensor 1)', P2196: 'O2 sensor signal stuck rich (bank 1 sensor 1)',
+  P2197: 'O2 sensor signal stuck lean (bank 2 sensor 1)', P2198: 'O2 sensor signal stuck rich (bank 2 sensor 1)',
+  P2263: 'Turbo/supercharger boost system performance', P2270: 'O2 sensor signal stuck lean (bank 1 sensor 2)',
+  P2271: 'O2 sensor signal stuck rich (bank 1 sensor 2)', P2279: 'Intake air system leak',
+  P20EE: 'SCR NOx catalyst efficiency below threshold (bank 1)', P242F: 'Particulate filter restriction, ash accumulation',
+  P2452: 'Particulate filter pressure sensor A circuit', P2453: 'Particulate filter pressure sensor A range/performance',
+  P2463: 'Particulate filter restriction, soot accumulation', P2A00: 'O2 sensor circuit range/performance (bank 1 sensor 1)',
+  U0001: 'High-speed CAN communication bus', U0073: 'Control module communication bus A off',
+  U0100: 'Lost communication with ECM/PCM A', U0101: 'Lost communication with TCM',
+  U0121: 'Lost communication with ABS control module', U0140: 'Lost communication with body control module',
+  U0151: 'Lost communication with restraints (airbag) module', U0155: 'Lost communication with instrument cluster',
+}).forEach(([c, t]) => dtc(c, t));
+
+family(70, 'Ambient air temperature sensor', 4);
+family(95, 'Intake air temperature sensor 2', 4);
+family(100, 'Mass air flow');
+family(105, 'Manifold absolute/barometric pressure');
+family(110, 'Intake air temperature sensor 1');
+family(115, 'Engine coolant temperature');
+family(120, 'Throttle/pedal position sensor A');
+family(176, 'Fuel composition sensor', 4);
+family(180, 'Fuel temperature sensor A', 4);
+family(190, 'Fuel rail pressure sensor');
+family(195, 'Engine oil temperature sensor', 4);
+family(220, 'Throttle/pedal position sensor B');
+family(225, 'Throttle/pedal position sensor C');
+family(235, 'Turbo/supercharger boost sensor A', 4);
+family(325, 'Knock sensor 1 (bank 1)');
+family(330, 'Knock sensor 2 (bank 2)');
+family(335, 'Crankshaft position sensor A');
+family(340, 'Camshaft position sensor A (bank 1)');
+family(345, 'Camshaft position sensor A (bank 2)');
+family(365, 'Camshaft position sensor B (bank 1)');
+family(390, 'Camshaft position sensor B (bank 2)');
+family(450, 'EVAP pressure sensor');
+family(460, 'Fuel level sensor A');
+family(470, 'Exhaust pressure sensor');
+family(520, 'Engine oil pressure sensor/switch', 4);
+family(530, 'A/C refrigerant pressure sensor A', 4);
+family(705, 'Transmission range sensor', 4);
+family(710, 'Transmission fluid temperature sensor A', 4);
+// O2 sensors: P0130-P0135 = bank 1 sensor 1, and so on.
+[[130, 'bank 1 sensor 1'], [136, 'bank 1 sensor 2'], [142, 'bank 1 sensor 3'],
+ [150, 'bank 2 sensor 1'], [156, 'bank 2 sensor 2'], [162, 'bank 2 sensor 3']]
+  .forEach(([base, where]) => ['circuit', 'circuit low voltage', 'circuit high voltage', 'slow response', 'no activity', 'heater circuit']
+    .forEach((what, i) => dtc(pd(base + i), `O2 sensor ${what} (${where})`)));
+for (let c = 1; c <= 12; c++) {
+  dtc(pd(300 + c), `Cylinder ${c} misfire detected`);
+  dtc(pd(200 + c), `Injector circuit/open, cylinder ${c}`);
+  dtc(pd(350 + c), `Ignition coil ${'ABCDEFGHIJKL'[c - 1]} primary/secondary circuit (cylinder ${c})`);
+  const d = 261 + 3 * (c - 1); // P0261-P0296: low, high, contribution per cylinder
+  dtc(pd(d), `Cylinder ${c} injector circuit low`);
+  dtc(pd(d + 1), `Cylinder ${c} injector circuit high`);
+  dtc(pd(d + 2), `Cylinder ${c} contribution/balance`);
+  dtc(pd(670 + c), `Cylinder ${c} glow plug circuit`);
+}
+for (let g = 1; g <= 5; g++) dtc(pd(730 + g), `Gear ${g} incorrect ratio`);
+['A', 'B', 'C', 'D', 'E'].forEach((s, i) => ['', ' performance or stuck off', ' stuck on', ' electrical', ' intermittent']
+  .forEach((what, k) => dtc(pd(750 + 5 * i + k), `Shift solenoid ${s}${what}`)));
+
+function dtcFallback(code) {
+  const sys = { P: 'Powertrain', C: 'Chassis', B: 'Body', U: 'Network' }[code[0]];
+  if (code[1] === '1' || code[1] === '3') return `${sys}: manufacturer-specific code`;
+  if (code[0] !== 'P') return `${sys}: generic code`;
+  const area = {
+    '00': 'fuel/air metering and auxiliary emission controls', '01': 'fuel and air metering', '02': 'fuel and air metering (injector circuit)',
+    '03': 'ignition system or misfire', '04': 'auxiliary emission controls', '05': 'vehicle speed, idle control or auxiliary inputs',
+    '06': 'computer or output circuits', '07': 'transmission', '08': 'transmission', '09': 'transmission', '0A': 'hybrid propulsion',
+  }[code.slice(1, 3)];
+  return area ? `Powertrain: ${area}` : 'Powertrain: generic code';
+}
 
 // ---------- State ----------
 let device = null, writeChar = null, notifyChar = null;
 let polling = false, wakeLock = null;
 let connecting = false, userStopped = false, retryTimer = null;
 const SAVED_KEY = 'obd-dash.deviceId';
+const SETTINGS_KEY = 'obd-dash.settings';
 const RETRY_MS = 5000;
+const HISTORY_S = 900;        // seconds of history kept per gauge for charts
+const SPARK_S = 120;          // seconds shown in each tile's sparkline
 let rxBuf = '', pending = null, chain = Promise.resolve();
 const rows = [];
 const enc = new TextEncoder(), dec = new TextDecoder();
 
-// ---------- UI ----------
+let supported = null;          // Set of PID numbers the car reports, or null if unknown
+let protocol = '';             // ATDPN result without the auto "A" prefix
+let fuelType = null;           // index into FUEL_TYPES
+const cur = {};                // latest metric values by gauge id
+const hist = {};               // id -> [[ms, metric value], ...]
+const vehicle = {};            // Vehicle tab fields
+let lastCodes = [];            // last scan: [{ code, kind }]
+let settings = { units: 'metric', interval: 500, hidden: DEFAULT_HIDDEN, dismissed: [] };
+try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch { /* optional */ }
+const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* optional */ } };
+
+const trip = { start: null, last: null, moving: 0, dist: 0, fuel: 0, fuelKnown: false, maxSpeed: 0, maxRpm: 0, series: [], bucket: [] };
+
+// ---------- Helpers ----------
 const $ = id => document.getElementById(id);
-function buildTiles() {
-  $('grid').innerHTML = [...PIDS, ...EXTRA].map(p => `
-    <div class="tile" id="t-${p.id}">
-      <div class="label">${p.label}</div>
-      <div class="value" id="v-${p.id}">–</div>
-      <div class="unit">${p.unit}</div>
-    </div>`).join('');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const hx = n => n.toString(16).toUpperCase().padStart(2, '0');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const isCan = () => /^[6-9A-C]$/.test(protocol);
+const isDiesel = () => fuelType === 4 || fuelType === 19 || fuelType === 23 || vehicle.compression;
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+function unitLabel(u) {
+  if (UNITS[u]) return UNITS[u][settings.units === 'imperial' ? 'i' : 'm'];
+  return u === 'time' ? '' : u;
 }
-function setVal(id, v) {
-  $('v-' + id).textContent = v;
-  $('t-' + id).classList.toggle('na', v === 'n/a');
-}
-function setStatus(text, state) {
-  $('statusText').textContent = text;
-  $('dot').className = 'dot' + (state ? ' ' + state : '');
+const conv = (u, v) => (UNITS[u] && settings.units === 'imperial') ? UNITS[u].f(v) : v;
+function fmt(g, v) {
+  if (v == null || Number.isNaN(v)) return '–';
+  if (g.u === 'time') {
+    const h = Math.floor(v / 3600), m = Math.floor(v / 60) % 60, s = Math.floor(v % 60);
+    return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0');
+  }
+  const c = UNITS[g.u];
+  const dp = c && settings.units === 'imperial' ? (c.idp ?? g.dp) : g.dp;
+  return conv(g.u, v).toFixed(dp ?? 0);
 }
 function log(msg) {
   const el = $('log');
   el.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
   el.scrollTop = el.scrollHeight;
 }
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+function setStatus(text, state) {
+  $('statusText').textContent = text;
+  $('dot').className = 'dot' + (state ? ' ' + state : '');
+}
+
+// ---------- Charts ----------
+// Size a canvas to its CSS box at device resolution and return its 2D context.
+function prep(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!w || !h) return null;
+  if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+    canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  return { ctx, w, h };
+}
+
+// pts: [[ms, value]] already in display units. axes: draw gridlines and labels.
+function drawSeries(canvas, pts, { spanMs, color, axes = false, fmtY = v => v.toFixed(0), fmtX } = {}) {
+  const c = prep(canvas);
+  if (!c) return;
+  const { ctx, w, h } = c;
+  const now = pts.length ? Math.max(Date.now(), pts[pts.length - 1][0]) : Date.now();
+  // Until a full span of data exists, stretch what there is across the chart.
+  const t0 = Math.max(spanMs ? now - spanMs : 0, pts[0]?.[0] ?? now);
+  const t1 = spanMs ? now : (pts[pts.length - 1]?.[0] ?? now);
+  const vis = pts.filter(p => p[0] >= t0);
+  const padL = axes ? 44 : 1, padR = axes ? 8 : 1, padT = axes ? 10 : 3, padB = axes ? 22 : 3;
+  const pw = w - padL - padR, ph = h - padT - padB;
+  if (axes) {
+    ctx.font = '11px system-ui, sans-serif';
+    ctx.fillStyle = css('--muted');
+  }
+  if (vis.length < 2) {
+    if (axes) { ctx.textAlign = 'center'; ctx.fillText('Collecting data…', w / 2, h / 2); }
+    else { ctx.strokeStyle = css('--line'); ctx.beginPath(); ctx.moveTo(0, h - 2); ctx.lineTo(w, h - 2); ctx.stroke(); }
+    return;
+  }
+  let lo = Math.min(...vis.map(p => p[1])), hi = Math.max(...vis.map(p => p[1]));
+  if (hi - lo < 1e-6) { lo -= 1; hi += 1; }
+  const pad = (hi - lo) * 0.12; lo -= pad; hi += pad;
+  const X = t => padL + (t - t0) / Math.max(1, t1 - t0) * pw;
+  const Y = v => padT + (1 - (v - lo) / (hi - lo)) * ph;
+
+  if (axes) {
+    ctx.strokeStyle = css('--line'); ctx.lineWidth = 1; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (let k = 0; k <= 3; k++) {
+      const v = lo + (hi - lo) * k / 3, y = Y(v);
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
+      ctx.fillText(fmtY(v), padL - 6, y);
+    }
+    ctx.textBaseline = 'alphabetic';
+    const xl = fmtX || (t => { const s = Math.round((t1 - t) / 1000); return s ? `-${s >= 60 ? Math.round(s / 60) + 'm' : s + 's'}` : 'now'; });
+    ctx.textAlign = 'left'; ctx.fillText(xl(t0), padL, h - 4);
+    ctx.textAlign = 'right'; ctx.fillText(xl(t1), w - padR, h - 4);
+  }
+
+  ctx.beginPath();
+  vis.forEach(([t, v], i) => i ? ctx.lineTo(X(t), Y(v)) : ctx.moveTo(X(t), Y(v)));
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.strokeStyle = color; ctx.lineWidth = axes ? 2 : 1.75; ctx.stroke();
+  // soft area fill under the line
+  ctx.lineTo(X(vis[vis.length - 1][0]), padT + ph); ctx.lineTo(X(vis[0][0]), padT + ph); ctx.closePath();
+  const grad = ctx.createLinearGradient(0, padT, 0, padT + ph);
+  grad.addColorStop(0, color + '40'); grad.addColorStop(1, color + '00');
+  ctx.fillStyle = grad; ctx.fill();
+  // end dot
+  const [lt, lv] = vis[vis.length - 1];
+  ctx.beginPath(); ctx.arc(X(lt), Y(lv), axes ? 3.5 : 2.5, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
+}
+
+const displayPts = id => (hist[id] || []).map(([t, v]) => [t, conv(gauge(id).u, v)]);
+
+// ---------- Live tab ----------
+function available(g) {
+  if (g.pid) return !supported || supported.has(parseInt(g.pid, 16));
+  if (g.id === 'econ') return available(gauge('fuelrate')) || (!isDiesel() && available(gauge('maf')));
+  return g.needs.every(id => available(gauge(id)));
+}
+const shown = g => available(g) && !settings.hidden.includes(g.id);
+
+// Dials: 240° arc; pathLength=100 lets stroke-dasharray act as a percentage.
+const ARC = 'M30.7 140 A80 80 0 1 1 169.3 140';
+function dialMax(id) {
+  if (id === 'rpm') return Math.max(isDiesel() ? 5000 : 8000, trip.maxRpm);
+  return conv('speed', Math.max(200, trip.maxSpeed));
+}
+function buildLive() {
+  $('hero').innerHTML = GAUGES.filter(g => g.hero && shown(g)).map(g => `
+    <div class="dial" data-id="${g.id}">
+      <svg viewBox="0 0 200 160" role="img" aria-label="${g.label}">
+        <path class="track" d="${ARC}" pathLength="100"/>
+        <path class="fill" id="arc-${g.id}" d="${ARC}" pathLength="100" stroke-dasharray="0 100"/>
+        <text class="num" x="100" y="112" id="v-${g.id}">–</text>
+        <text class="sub" x="100" y="136">${unitLabel(g.u) === g.label.toLowerCase() ? g.label : g.label + ' · ' + unitLabel(g.u)}</text>
+      </svg>
+    </div>`).join('');
+  $('groups').innerHTML = GROUPS.map(([gid, title]) => {
+    const items = GAUGES.filter(g => g.g === gid && !g.hero && shown(g));
+    if (!items.length) return '';
+    return `<h2>${title}</h2><div class="grid">${items.map(g => `
+      <div class="tile" id="t-${g.id}" data-id="${g.id}">
+        <div class="label">${g.label}</div>
+        <div class="reading"><span class="value" id="v-${g.id}">–</span><span class="unit">${unitLabel(g.u)}</span></div>
+        <canvas id="c-${g.id}"></canvas>
+      </div>`).join('')}</div>`;
+  }).join('');
+  $('liveHint').hidden = !!supported;
+  GAUGES.forEach(g => { if (cur[g.id] != null || g.skip) paint(g.id); });
+  buildPicker();
+}
+
+function paint(id) {
+  const g = gauge(id), v = cur[id];
+  const el = $('v-' + id);
+  if (!el) return;
+  if (g.skip) { el.textContent = 'n/a'; $('t-' + id)?.classList.add('na'); return; }
+  el.textContent = id === 'econ' && cur.econIdle ? 'idle' : fmt(g, v);
+  const tile = $('t-' + id);
+  if (tile) {
+    tile.classList.remove('na');
+    tile.classList.toggle('alert', v != null && !!g.warn?.(v));
+  }
+  const arc = $('arc-' + id);
+  if (arc && v != null) {
+    const p = Math.max(0, Math.min(100, conv(g.u, v) / dialMax(id) * 100));
+    arc.setAttribute('stroke-dasharray', `${p.toFixed(1)} 100`);
+  }
+}
+function drawSparks() {
+  if ($('tab-live').hidden) return;
+  const accent = css('--accent'), bad = css('--bad');
+  GAUGES.forEach(g => {
+    const cv = $('c-' + g.id);
+    if (!cv) return;
+    const alert = $('t-' + g.id)?.classList.contains('alert');
+    drawSeries(cv, displayPts(g.id), { spanMs: SPARK_S * 1000, color: alert ? bad : accent });
+  });
+}
+
+function setVal(id, v) {
+  const now = Date.now();
+  cur[id] = v;
+  if (v != null) {
+    const h = hist[id] || (hist[id] = []);
+    h.push([now, v]);
+    while (h.length && h[0][0] < now - HISTORY_S * 1000) h.shift();
+  }
+  paint(id);
+  if (dlgId === id) drawDialog();
+}
+
+// ---------- Chart dialog ----------
+let dlgId = null, dlgSpan = 300;
+function openChart(id) {
+  dlgId = id;
+  const g = gauge(id);
+  $('dlgLabel').textContent = g.label;
+  $('dlgUnit').textContent = unitLabel(g.u);
+  $('chartDlg').showModal();
+  drawDialog();
+}
+function drawDialog() {
+  const g = gauge(dlgId);
+  $('dlgValue').textContent = g.skip ? 'n/a' : fmt(g, cur[dlgId]);
+  const pts = displayPts(dlgId).filter(p => p[0] >= Date.now() - dlgSpan * 1000);
+  const dp = (UNITS[g.u] && settings.units === 'imperial' ? UNITS[g.u].idp : null) ?? g.dp ?? 0;
+  const f = v => g.u === 'time' ? fmt(g, v) : v.toFixed(dp);
+  const vals = pts.map(p => p[1]);
+  $('dlgMin').textContent = vals.length ? f(Math.min(...vals)) : '–';
+  $('dlgMax').textContent = vals.length ? f(Math.max(...vals)) : '–';
+  $('dlgAvg').textContent = vals.length ? f(vals.reduce((a, b) => a + b, 0) / vals.length) : '–';
+  const alert = cur[dlgId] != null && g.warn?.(cur[dlgId]);
+  drawSeries($('dlgCanvas'), pts, { spanMs: dlgSpan * 1000, color: css(alert ? '--bad' : '--accent'), axes: true, fmtY: v => g.u === 'time' ? fmt(g, v) : v.toFixed(Math.min(dp, 1)) });
+}
+$('dlgClose').onclick = () => $('chartDlg').close();
+$('chartDlg').addEventListener('close', () => { dlgId = null; });
+$('chartDlg').addEventListener('click', e => { if (e.target === $('chartDlg')) $('chartDlg').close(); });
+$('dlgRange').addEventListener('click', e => {
+  const s = +e.target.dataset.s;
+  if (!s) return;
+  dlgSpan = s;
+  $('dlgRange').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b === e.target));
+  drawDialog();
+});
+$('tab-live').addEventListener('click', e => {
+  const el = e.target.closest('[data-id]');
+  if (el) openChart(el.dataset.id);
+});
+
+// ---------- Settings: gauge picker ----------
+function buildPicker() {
+  $('gaugePicker').innerHTML = GROUPS.map(([gid, title]) => {
+    const items = GAUGES.filter(g => g.g === gid && available(g));
+    return items.length ? `<h3>${title}</h3>` + items.map(g => `
+      <label><input type="checkbox" data-id="${g.id}" ${settings.hidden.includes(g.id) ? '' : 'checked'}> ${g.label}</label>`).join('') : '';
+  }).join('');
+}
+$('gaugePicker').addEventListener('change', e => {
+  const id = e.target.dataset.id;
+  settings.hidden = settings.hidden.filter(x => x !== id);
+  if (!e.target.checked) settings.hidden.push(id);
+  saveSettings();
+  buildLive();
+});
+
+// ---------- Trip tab ----------
+function renderTrip() {
+  const now = performance.now();
+  const secs = trip.start ? (now - trip.start) / 1000 : 0;
+  const avg = trip.moving > 0 ? trip.dist / (trip.moving / 3600) : null;
+  const econ = trip.fuelKnown && trip.dist > 0.1 ? trip.fuel / trip.dist * 100 : null;
+  const tiles = [
+    ['Distance', { u: 'dist', dp: 1 }, trip.dist],
+    ['Trip time', { u: 'time' }, secs],
+    ['Moving time', { u: 'time' }, trip.moving],
+    ['Avg speed', { u: 'speed', dp: 0 }, avg],
+    ['Max speed', { u: 'speed', dp: 0 }, trip.maxSpeed],
+    ['Max RPM', { u: 'rpm', dp: 0 }, trip.maxRpm],
+    ['Fuel used', { u: 'vol', dp: 1 }, trip.fuelKnown ? trip.fuel : null],
+    ['Avg economy', { u: 'econ', dp: 1 }, econ],
+  ];
+  $('tripGrid').innerHTML = tiles.map(([label, g, v]) => `
+    <div class="tile static${v == null ? ' na' : ''}"><div class="label">${label}</div>
+    <div class="reading"><span class="value">${v == null ? 'n/a' : fmt(g, v)}</span><span class="unit">${unitLabel(g.u)}</span></div></div>`).join('');
+  $('fuelNote').textContent = !supported || available(gauge('econ')) ? '' :
+    isDiesel() ? 'Fuel use needs the fuel-rate PID (5E), which this diesel doesn\'t report.'
+               : 'Fuel use needs the fuel-rate (5E) or mass air flow (10) PID, which this car doesn\'t report.';
+  const pts = trip.series.map(([t, v]) => [t, conv('speed', v)]);
+  drawSeries($('tripChart'), pts, {
+    color: css('--accent'), axes: true,
+    fmtX: t => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+  });
+}
+function resetTrip() {
+  Object.assign(trip, { start: polling ? performance.now() : null, last: null, moving: 0, dist: 0, fuel: 0, fuelKnown: false, maxSpeed: 0, maxRpm: 0, series: [], bucket: [] });
+  renderTrip();
+}
+
+// ---------- Vehicle tab ----------
+function renderVehicle() {
+  const items = [
+    ['VIN', vehicle.vin], ['Fuel type', vehicle.fuel], ['OBD standard', vehicle.standard],
+    ['Protocol', vehicle.protocol], ['Adapter', vehicle.adapter], ['Supported PIDs', supported ? supported.size : null],
+    ['Run time since start', cur.runtime != null ? fmt({ u: 'time' }, cur.runtime) : null],
+    ['Distance since codes cleared', cur.clrDist != null ? fmt({ u: 'dist', dp: 0 }, cur.clrDist) + ' ' + unitLabel('dist') : null],
+  ];
+  $('vehInfo').innerHTML = items.map(([k, v]) => `<dt>${k}</dt><dd>${v == null || v === '' ? '<span class="muted">–</span>' : esc(v)}</dd>`).join('');
+  if (vehicle.monitors) {
+    $('readiness').innerHTML = vehicle.monitors.map(([name, state]) =>
+      `<dt>${name}</dt><dd class="${state === 'Complete' ? 'ok' : state === 'Not complete' ? 'bad' : 'muted'}">${state}</dd>`).join('');
+  }
+}
+
+function setConnectedUi(on) {
+  $('connectBtn').hidden = on;
+  ['readCodesBtn', 'clearCodesBtn', 'vehRefreshBtn'].forEach(id => { $(id).disabled = !on; });
+}
+
+document.querySelector('.tabs').addEventListener('click', e => {
+  const tab = e.target.dataset?.tab;
+  if (!tab) return;
+  document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab));
+  document.querySelectorAll('section[id^="tab-"]').forEach(s => { s.hidden = s.id !== 'tab-' + tab; });
+  if (tab === 'live') drawSparks();
+  if (tab === 'trip') renderTrip();
+  if (tab === 'vehicle') renderVehicle();
+});
+window.addEventListener('resize', () => { drawSparks(); if (!$('tab-trip').hidden) renderTrip(); if (dlgId) drawDialog(); });
 
 // ---------- BLE transport ----------
 async function connect(known) {
@@ -201,15 +886,30 @@ function clean(resp, cmd) {
     .filter(s => s && s !== cmd && !/^SEARCHING/i.test(s));
 }
 
-function parsePid(resp, pid) {
-  for (const line of clean(resp)) {
-    const h = line.replace(/\s/g, '').toUpperCase();
-    const i = h.indexOf('41' + pid);
-    if (i >= 0) {
-      const data = h.slice(i + 4), bytes = [];
-      for (let j = 0; j + 1 < data.length; j += 2) bytes.push(parseInt(data.substr(j, 2), 16));
-      return bytes;
+// Split a response into hex messages, joining ISO-TP multi-frame lines
+// ("0:...", "1:...") and dropping the byte-count line that precedes them.
+function messages(resp) {
+  const out = [];
+  for (const raw of clean(resp)) {
+    const line = raw.replace(/\s/g, '').toUpperCase();
+    const frame = line.match(/^([0-9A-F]):([0-9A-F]+)$/);
+    if (frame) {
+      if (frame[1] === '0' || !out.length) out.push(frame[2]);
+      else out[out.length - 1] += frame[2];
+    } else if (/^[0-9A-F]{3}$/.test(line)) {
+      continue;
+    } else if (/^[0-9A-F]+$/.test(line)) {
+      out.push(line);
     }
+  }
+  return out;
+}
+const toBytes = h => { const b = []; for (let j = 0; j + 1 < h.length; j += 2) b.push(parseInt(h.substr(j, 2), 16)); return b; };
+
+function parsePid(resp, pid) {
+  for (const m of messages(resp)) {
+    const i = m.indexOf('41' + pid);
+    if (i >= 0) return toBytes(m.slice(i + 4));
   }
   return null;
 }
@@ -223,50 +923,238 @@ async function initElm() {
     ['ATS0', 2000],  // spaces off
     ['ATH0', 2000],  // headers off
     ['ATAT1', 2000], // adaptive timing
-    ['ATSP0', 2000], // auto protocol (ATSP6 = CAN 11-bit 500k, faster if you know it)
+    ['ATSP0', 2000], // auto protocol
   ];
   for (const [c, t] of cmds) {
     const r = await send(c, t);
-    log(`${c} → ${clean(r, c).join(' ') || 'OK'}`);
+    const out = clean(r, c).join(' ');
+    if (c === 'ATZ') vehicle.adapter = out.match(/ELM\S*\s*v?[\d.]+/i)?.[0] || out;
+    log(`${c} → ${out || 'OK'}`);
   }
   const first = await send('0100', 10000); // triggers protocol search
   log(`0100 → ${clean(first).join(' ')}`);
-  const proto = await send('ATDPN');
-  log(`Protocol → ${clean(proto).join(' ')}`);
+  const proto = clean(await send('ATDPN')).join('');
+  protocol = proto.replace(/^A/, '');
+  vehicle.protocol = PROTOCOLS[protocol] || proto;
+  log(`Protocol → ${vehicle.protocol}`);
+}
+
+// Ask for the supported-PID bitmaps 0100, 0120, 0140… and OR every ECU's answer.
+async function detectSupported() {
+  const set = new Set();
+  for (let base = 0; base < 0xC0; base += 0x20) {
+    if (base && !set.has(base)) break;
+    let got = false;
+    try {
+      const resp = await send('01' + hx(base), 4000);
+      for (const m of messages(resp)) {
+        const i = m.indexOf('41' + hx(base));
+        if (i < 0) continue;
+        const b = toBytes(m.slice(i + 4, i + 12));
+        if (b.length < 4) continue;
+        got = true;
+        for (let k = 0; k < 32; k++) if ((b[k >> 3] >> (7 - (k & 7))) & 1) set.add(base + k + 1);
+      }
+    } catch (e) { log(e.message); }
+    if (!got) break;
+  }
+  supported = set.size ? set : null;
+  log(supported ? `Car reports ${set.size} supported PIDs` : 'Could not read supported PIDs; trying all gauges');
+}
+
+async function readPid(pid, timeout = 1500) {
+  try { return parsePid(await send('01' + pid, timeout), pid); } catch (e) { log(e.message); return null; }
+}
+
+async function readVehicleInfo() {
+  if (!supported || supported.has(0x51)) {
+    const b = await readPid('51');
+    if (b?.length) { fuelType = b[0]; vehicle.fuel = FUEL_TYPES[b[0]] || `Other (${b[0]})`; }
+  }
+  if (!supported || supported.has(0x1C)) {
+    const b = await readPid('1C');
+    if (b?.length) vehicle.standard = OBD_STANDARDS[b[0]] || `Code ${b[0]}`;
+  }
+  if (!supported || supported.has(0x31)) {
+    const b = await readPid('31');
+    if (b?.length >= 2) cur.clrDist = u16(b);
+  }
+  try {
+    const hexes = messages(await send('0902', 5000)).filter(m => m.startsWith('4902')).map(m => m.slice(6));
+    const vin = toBytes(hexes.join('')).map(c => String.fromCharCode(c)).join('').replace(/[^A-HJ-NPR-Z0-9]/g, '');
+    if (vin.length >= 17) vehicle.vin = vin.slice(-17);
+  } catch (e) { log(e.message); }
+  await readStatus();
+  renderVehicle();
+}
+
+// 0101: check-engine light, stored code count and readiness monitors.
+async function readStatus() {
+  const b = await readPid('01');
+  if (!b || b.length < 4) return;
+  const [A, B, C, D] = b;
+  vehicle.mil = !!(A & 0x80);
+  vehicle.dtcCount = A & 0x7f;
+  vehicle.compression = !!(B & 0x08);
+  const state = (avail, incomplete) => !avail ? 'Not supported' : incomplete ? 'Not complete' : 'Complete';
+  const mons = [
+    ['Misfire', state(B & 1, B & 0x10)],
+    ['Fuel system', state(B & 2, B & 0x20)],
+    ['Components', state(B & 4, B & 0x40)],
+  ];
+  const names = vehicle.compression
+    ? ['NMHC catalyst', 'NOx/SCR', null, 'Boost pressure', null, 'Exhaust gas sensor', 'Particulate filter', 'EGR/VVT']
+    : ['Catalyst', 'Heated catalyst', 'EVAP system', 'Secondary air', null, 'O2 sensor', 'O2 sensor heater', 'EGR/VVT'];
+  names.forEach((n, k) => { if (n) mons.push([n, state(C & (1 << k), D & (1 << k))]); });
+  vehicle.monitors = mons;
+  const s = vehicle.dtcCount === 1 ? '' : 's';
+  $('milText').innerHTML = vehicle.mil
+    ? `<span class="pill"><span class="dot"></span><span class="bad">Check-engine light is on</span></span> · ${vehicle.dtcCount} stored code${s}`
+    : `<span class="pill"><span class="dot on"></span><span class="ok">Check-engine light is off</span></span> · ${vehicle.dtcCount} stored code${s}`;
+}
+
+// ---------- Trouble codes ----------
+function decodeDtc(h) {
+  const n = parseInt(h, 16);
+  return 'PCBU'[n >> 14] + ((n >> 12) & 3) + h.slice(1).toUpperCase();
+}
+function parseDtcs(resp, mode) {
+  const codes = [];
+  for (const m of messages(resp)) {
+    if (!m.startsWith(mode)) continue;
+    let data = m.slice(2);
+    if (isCan()) data = data.slice(2); // CAN replies carry a code count first
+    for (let j = 0; j + 3 < data.length; j += 4) {
+      const h = data.substr(j, 4);
+      if (h !== '0000') codes.push(decodeDtc(h));
+    }
+  }
+  return [...new Set(codes)];
+}
+function renderCodes() {
+  const visible = lastCodes.filter(c => !settings.dismissed.includes(c.code));
+  const hiddenCount = lastCodes.length - visible.length;
+  $('dtcList').innerHTML = (visible.length ? visible.map(({ code, kind }) => `
+    <div class="dtc">
+      <div><span class="code">${code}</span><span class="kind ${kind}">${kind}</span></div>
+      <div class="desc">${esc(DTC_TEXT[code] || dtcFallback(code))}</div>
+      <div class="acts">
+        <a href="https://www.google.com/search?q=${encodeURIComponent(code + ' OBD code')}" target="_blank" rel="noopener">Look it up</a>
+        <button class="ghost" data-dismiss="${code}">Hide</button>
+      </div>
+    </div>`).join('') : `<span class="${lastCodes.length ? 'muted' : 'ok'}">${lastCodes.length ? 'All codes are hidden.' : 'No trouble codes found.'}</span>`)
+    + (hiddenCount ? `<div style="margin-top:10px"><button class="ghost" id="showHiddenBtn">Show ${hiddenCount} hidden code${hiddenCount === 1 ? '' : 's'}</button></div>` : '');
+  $('dtcNote').textContent = 'Hide only removes a code from this list. The car can only clear all codes at once, so Clear all codes is the way to turn off the check-engine light.';
+}
+$('dtcList').addEventListener('click', e => {
+  const code = e.target.dataset?.dismiss;
+  if (code) { settings.dismissed.push(code); saveSettings(); renderCodes(); }
+  if (e.target.id === 'showHiddenBtn') { settings.dismissed = []; saveSettings(); renderCodes(); }
+});
+async function readCodes() {
+  $('readCodesBtn').disabled = true;
+  $('dtcList').innerHTML = '<span class="muted">Reading…</span>';
+  const found = [];
+  for (const [cmd, mode, kind] of [['03', '43', 'Stored'], ['07', '47', 'Pending'], ['0A', '4A', 'Permanent']]) {
+    try {
+      for (const code of parseDtcs(await send(cmd, 5000), mode)) found.push({ code, kind });
+    } catch (e) { log(e.message); }
+  }
+  await readStatus();
+  log(`Codes: ${found.map(f => f.code).join(', ') || 'none'}`);
+  lastCodes = found;
+  renderCodes();
+  $('readCodesBtn').disabled = !writeChar;
+}
+async function clearCodes() {
+  if (!confirm('Clear all trouble codes and turn off the check-engine light?\n\nOBD-II can only clear every code at once. Do this with the engine off and ignition on. It also resets the readiness monitors, so the car may fail an emissions test until it has been driven for a while.')) return;
+  try {
+    const r = clean(await send('04', 5000)).join(' ');
+    log(`04 → ${r}`);
+  } catch (e) { log(e.message); }
+  settings.dismissed = []; saveSettings();
+  await readCodes();
+}
+
+// ---------- Polling ----------
+let slowIdx = 0;
+async function pollGauge(p, row) {
+  if (p.skip) return;
+  const bytes = await readPid(p.pid);
+  if (bytes && bytes.length >= p.n) {
+    const v = p.f(bytes);
+    row[p.id] = v;
+    setVal(p.id, v);
+    p.fails = 0;
+  } else if (++p.fails >= 3) {
+    p.skip = true; paint(p.id); log(`PID ${p.pid} unsupported, skipping`);
+  }
+}
+
+function updateDerived(row) {
+  if (cur.map != null && available(gauge('boost'))) {
+    row.boost = cur.map - (cur.baro ?? 101.3);
+    setVal('boost', row.boost);
+  }
+  let lph = null;
+  if (cur.fuelrate != null && !gauge('fuelrate').skip) lph = cur.fuelrate;
+  else if (cur.maf != null && !isDiesel()) lph = cur.maf * 3600 / (14.7 * 745); // petrol, stoichiometric
+  const now = performance.now();
+  if (trip.last != null) {
+    const dt = Math.min((now - trip.last) / 1000, 5);
+    const spd = cur.speed ?? 0;
+    trip.dist += spd * dt / 3600;
+    if (spd > 1) trip.moving += dt;
+    if (lph != null) { trip.fuel += lph * dt / 3600; trip.fuelKnown = true; }
+  }
+  trip.last = now;
+  trip.maxSpeed = Math.max(trip.maxSpeed, cur.speed ?? 0);
+  trip.maxRpm = Math.max(trip.maxRpm, cur.rpm ?? 0);
+  // Trip chart: one averaged speed point every 10 s, so long trips stay light.
+  if (cur.speed != null) {
+    trip.bucket.push(cur.speed);
+    const lastT = trip.series[trip.series.length - 1]?.[0] ?? 0;
+    if (Date.now() - lastT >= 10000) {
+      trip.series.push([Date.now(), trip.bucket.reduce((a, b) => a + b, 0) / trip.bucket.length]);
+      trip.bucket = [];
+    }
+  }
+  if (lph != null && (cur.speed ?? 0) > 5) { cur.econIdle = false; row.econ = lph / cur.speed * 100; setVal('econ', row.econ); }
+  else if (lph != null) { cur.econIdle = true; paint('econ'); }
 }
 
 async function pollLoop() {
   PIDS.forEach(p => { p.fails = 0; p.skip = false; });
+  if (!trip.start) trip.start = performance.now();
+  trip.last = null;
+  let cycle = 0;
   while (polling) {
     const t0 = performance.now();
     const row = { time: new Date().toISOString() };
+    const active = PIDS.filter(shown);
+    // The trip needs speed, rpm and fuel data even when those gauges are hidden.
+    const needed = PIDS.filter(p => ['speed', 'rpm', 'fuelrate', 'maf', 'map'].includes(p.id) && available(p) && !active.includes(p));
+    const fast = [...active.filter(p => p.fast), ...needed];
+    const slow = active.filter(p => !p.fast);
 
-    for (const p of PIDS) {
-      if (!polling) break;
-      if (p.skip) continue;
-      try {
-        const bytes = parsePid(await send('01' + p.pid, 1500), p.pid);
-        if (bytes && bytes.length >= p.n) {
-          const v = p.f(bytes);
-          row[p.id] = v;
-          setVal(p.id, v.toFixed(p.dp));
-          p.fails = 0;
-        } else if (++p.fails >= 3) {
-          p.skip = true; setVal(p.id, 'n/a'); log(`PID ${p.pid} unsupported, skipping`);
-        }
-      } catch (e) { log(e.message); }
+    for (const p of fast) { if (!polling) break; await pollGauge(p, row); }
+    for (let k = 0; k < Math.min(2, slow.length) && polling; k++) {
+      await pollGauge(slow[slowIdx++ % slow.length], row);
     }
-
-    if (polling) {
+    if (polling && cycle % 5 === 0 && shown(gauge('volts'))) {
       try {
         const v = parseFloat(clean(await send('ATRV'))[0]);
-        if (!isNaN(v)) { row.volts = v; setVal('volts', v.toFixed(1)); }
+        if (!isNaN(v)) { row.volts = v; setVal('volts', v); }
       } catch (e) { log(e.message); }
     }
+    updateDerived(row);
+    drawSparks();
+    if (!$('tab-trip').hidden && cycle % 2 === 0) renderTrip();
+    cycle++;
 
     rows.push(row);
     $('csvBtn').disabled = false;
-    const wait = +$('interval').value - (performance.now() - t0);
+    const wait = settings.interval - (performance.now() - t0);
     if (wait > 0) await sleep(wait);
   }
 }
@@ -283,10 +1171,15 @@ async function start(known) {
     setStatus('Initialising…', 'busy');
     $('disconnectBtn').disabled = true;
     await initElm();
+    setStatus('Reading car…', 'busy');
+    await detectSupported();
+    await readVehicleInfo();
+    buildLive();
     setStatus(`Connected: ${device.name || 'adapter'}`, 'on');
     try { localStorage.setItem(SAVED_KEY, device.id); } catch { /* optional */ }
     userStopped = false;
     $('disconnectBtn').disabled = false;
+    setConnectedUi(true);
     await requestWakeLock();
     polling = true;
     pollLoop();
@@ -315,6 +1208,7 @@ function onDisconnected() {
   if (pending) { clearTimeout(pending.timer); pending = null; }
   writeChar = notifyChar = null;
   setStatus('Disconnected');
+  setConnectedUi(false);
   $('connectBtn').disabled = false;
   $('disconnectBtn').disabled = true;
   wakeLock?.release().catch(() => {});
@@ -359,8 +1253,9 @@ document.addEventListener('visibilitychange', () => {
 });
 
 function downloadCsv() {
-  const cols = ['time', ...PIDS.map(p => p.id), 'volts'];
-  const csv = [cols.join(','), ...rows.map(r => cols.map(c => r[c] ?? '').join(','))].join('\n');
+  const ids = GAUGES.map(g => g.id).filter(id => rows.some(r => r[id] != null));
+  const head = ['time', ...ids.map(id => { const g = gauge(id); const u = UNITS[g.u]?.m ?? g.u; return u ? `${id} (${u})` : id; })];
+  const csv = [head.join(','), ...rows.map(r => ['time', ...ids].map(c => r[c] ?? '').join(','))].join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
   a.download = `obd-log-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
@@ -369,15 +1264,25 @@ function downloadCsv() {
 }
 
 // ---------- Boot ----------
-buildTiles();
+$('units').value = settings.units;
+$('interval').value = String(settings.interval);
+$('units').onchange = e => { settings.units = e.target.value; saveSettings(); buildLive(); renderTrip(); renderVehicle(); };
+$('interval').onchange = e => { settings.interval = +e.target.value; saveSettings(); };
+buildLive();
+renderTrip();
+renderVehicle();
 if (!navigator.bluetooth) {
   $('unsupported').hidden = false;
   $('connectBtn').disabled = true;
 }
 $('connectBtn').onclick = () => { userStopped = true; clearTimeout(retryTimer); start(); };
 $('disconnectBtn').onclick = stop;
-if (navigator.bluetooth) autoConnect().catch(e => log('Auto-connect: ' + e.message));
 $('csvBtn').onclick = downloadCsv;
+$('tripResetBtn').onclick = resetTrip;
+$('readCodesBtn').onclick = readCodes;
+$('clearCodesBtn').onclick = clearCodes;
+$('vehRefreshBtn').onclick = () => readVehicleInfo();
+if (navigator.bluetooth) autoConnect().catch(e => log('Auto-connect: ' + e.message));
 </script>
 </body>
 </html>
