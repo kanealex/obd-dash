@@ -17,7 +17,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.launch
 
 class ObdCarAppService : CarAppService() {
@@ -46,7 +45,7 @@ class DashScreen(carContext: CarContext) : Screen(carContext) {
     init {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                ObdManager.state.conflate().collect {
+                ObdManager.state.collect {
                     state = it
                     invalidate()
                     delay(1_000)
