@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<title>OBD Dash</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --line: #30363d;
+    --text: #e6edf3; --muted: #8b949e; --accent: #3fb950; --warn: #d29922; --bad: #f85149;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  h1 { font-size: 18px; margin: 0; flex: 1; }
+  .status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bad); }
+  .dot.on { background: var(--accent); }
+  .dot.busy { background: var(--warn); }
+  button, select {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 10px 14px; font-size: 15px;
+  }
+  button.primary { background: var(--accent); color: #04110a; border-color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: .5; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .tile .label { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .value { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; margin-top: 6px; }
+  .tile .unit { color: var(--muted); font-size: 14px; }
+  .tile.na .value { color: var(--muted); font-size: 24px; }
+  details { margin-top: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+  summary { cursor: pointer; color: var(--muted); }
+  #log { font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; max-height: 40vh; overflow: auto; margin-top: 8px; }
+  .notice { background: #3d1d1d; border: 1px solid var(--bad); border-radius: 8px; padding: 12px; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>OBD Dash</h1>
+  <div class="status"><span class="dot" id="dot"></span><span id="statusText">Disconnected</span></div>
+</header>
+
+<div id="unsupported" class="notice" hidden>
+  Web Bluetooth isn't available here. Open this page in Chrome on Android, served over HTTPS (or localhost).
+</div>
+
+<div class="controls">
+  <button class="primary" id="connectBtn">Connect</button>
+  <button id="disconnectBtn" disabled>Disconnect</button>
+  <select id="interval" aria-label="Poll interval">
+    <option value="0">As fast as possible</option>
+    <option value="500" selected>Every 0.5 s</option>
+    <option value="1000">Every 1 s</option>
+    <option value="2000">Every 2 s</option>
+  </select>
+  <button id="csvBtn" disabled>Download CSV</button>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<details>
+  <summary>Log</summary>
+  <div id="log"></div>
+</details>
+
+<script>
+// ---------- Config ----------
+// Common BLE services used by ELM327-style dongles. Web Bluetooth only lets
+// the page see services listed here, so add yours if the adapter uses another.
+const SERVICE_CANDIDATES = [
+  0xfff0, 0xffe0, 0x18f0,
+  'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Vgate / some clones
+];
+
+// Mode 01 PIDs. f() receives the data bytes after "41 xx".
+const PIDS = [
+  { id: 'rpm',     label: 'RPM',         pid: '0C', unit: 'rpm',  n: 2, f: b => (b[0] * 256 + b[1]) / 4, dp: 0 },
+  { id: 'speed',   label: 'Speed',       pid: '0D', unit: 'km/h', n: 1, f: b => b[0], dp: 0 },
+  { id: 'coolant', label: 'Coolant',     pid: '05', unit: '°C',   n: 1, f: b => b[0] - 40, dp: 0 },
+  { id: 'iat',     label: 'Intake air',  pid: '0F', unit: '°C',   n: 1, f: b => b[0] - 40, dp: 0 },
+  { id: 'load',    label: 'Engine load', pid: '04', unit: '%',    n: 1, f: b => b[0] * 100 / 255, dp: 0 },
+  { id: 'map',     label: 'Manifold abs', pid: '0B', unit: 'kPa', n: 1, f: b => b[0], dp: 0 },
+];
+const EXTRA = [{ id: 'volts', label: 'Battery', unit: 'V' }];
+
+// ---------- State ----------
+let device = null, writeChar = null, notifyChar = null;
+let polling = false, wakeLock = null;
+let rxBuf = '', pending = null, chain = Promise.resolve();
+const rows = [];
+const enc = new TextEncoder(), dec = new TextDecoder();
+
+// ---------- UI ----------
+const $ = id => document.getElementById(id);
+function buildTiles() {
+  $('grid').innerHTML = [...PIDS, ...EXTRA].map(p => `
+    <div class="tile" id="t-${p.id}">
+      <div class="label">${p.label}</div>
+      <div class="value" id="v-${p.id}">–</div>
+      <div class="unit">${p.unit}</div>
+    </div>`).join('');
+}
+function setVal(id, v) {
+  $('v-' + id).textContent = v;
+  $('t-' + id).classList.toggle('na', v === 'n/a');
+}
+function setStatus(text, state) {
+  $('statusText').textContent = text;
+  $('dot').className = 'dot' + (state ? ' ' + state : '');
+}
+function log(msg) {
+  const el = $('log');
+  el.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+  el.scrollTop = el.scrollHeight;
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// ---------- BLE transport ----------
+async function connect() {
+  device = await navigator.bluetooth.requestDevice({
+    acceptAllDevices: true,
+    optionalServices: SERVICE_CANDIDATES,
+  });
+  device.addEventListener('gattserverdisconnected', onDisconnected);
+  setStatus('Connecting…', 'busy');
+  const server = await device.gatt.connect();
+
+  // Find a service that has both a notify and a write characteristic.
+  for (const svc of await server.getPrimaryServices()) {
+    let n = null, w = null;
+    for (const c of await svc.getCharacteristics()) {
+      if (!n && (c.properties.notify || c.properties.indicate)) n = c;
+      if (!w && (c.properties.write || c.properties.writeWithoutResponse)) w = c;
+    }
+    if (n && w) {
+      notifyChar = n; writeChar = w;
+      log(`Using service ${svc.uuid}`);
+      break;
+    }
+  }
+  if (!notifyChar) throw new Error('No usable serial characteristic found. Add the adapter\'s service UUID to SERVICE_CANDIDATES.');
+
+  await notifyChar.startNotifications();
+  notifyChar.addEventListener('characteristicvaluechanged', onNotify);
+}
+
+function onNotify(e) {
+  rxBuf += dec.decode(e.target.value);
+  const end = rxBuf.indexOf('>');
+  if (end >= 0 && pending) {
+    const resp = rxBuf.slice(0, end);
+    rxBuf = rxBuf.slice(end + 1);
+    const p = pending; pending = null;
+    clearTimeout(p.timer);
+    p.resolve(resp);
+  }
+}
+
+async function writeBytes(bytes) {
+  for (let i = 0; i < bytes.length; i += 20) {
+    const chunk = bytes.slice(i, i + 20);
+    if (writeChar.properties.writeWithoutResponse) await writeChar.writeValueWithoutResponse(chunk);
+    else await writeChar.writeValueWithResponse(chunk);
+  }
+}
+
+function sendRaw(cmd, timeout) {
+  return new Promise((resolve, reject) => {
+    rxBuf = '';
+    const timer = setTimeout(() => { pending = null; reject(new Error(`Timeout: ${cmd}`)); }, timeout);
+    pending = { resolve, timer };
+    writeBytes(enc.encode(cmd + '\r')).catch(err => {
+      clearTimeout(timer); pending = null; reject(err);
+    });
+  });
+}
+
+// Serialise commands: the ELM327 handles one at a time.
+function send(cmd, timeout = 2000) {
+  const p = chain.then(() => sendRaw(cmd, timeout));
+  chain = p.catch(() => {});
+  return p;
+}
+
+function clean(resp, cmd) {
+  return resp.replace(/\r/g, '\n').split('\n')
+    .map(s => s.trim())
+    .filter(s => s && s !== cmd && !/^SEARCHING/i.test(s));
+}
+
+function parsePid(resp, pid) {
+  for (const line of clean(resp)) {
+    const h = line.replace(/\s/g, '').toUpperCase();
+    const i = h.indexOf('41' + pid);
+    if (i >= 0) {
+      const data = h.slice(i + 4), bytes = [];
+      for (let j = 0; j + 1 < data.length; j += 2) bytes.push(parseInt(data.substr(j, 2), 16));
+      return bytes;
+    }
+  }
+  return null;
+}
+
+// ---------- ELM327 ----------
+async function initElm() {
+  const cmds = [
+    ['ATZ', 5000],   // reset
+    ['ATE0', 2000],  // echo off
+    ['ATL0', 2000],  // linefeeds off
+    ['ATS0', 2000],  // spaces off
+    ['ATH0', 2000],  // headers off
+    ['ATAT1', 2000], // adaptive timing
+    ['ATSP0', 2000], // auto protocol (ATSP6 = CAN 11-bit 500k, faster if you know it)
+  ];
+  for (const [c, t] of cmds) {
+    const r = await send(c, t);
+    log(`${c} → ${clean(r, c).join(' ') || 'OK'}`);
+  }
+  const first = await send('0100', 10000); // triggers protocol search
+  log(`0100 → ${clean(first).join(' ')}`);
+  const proto = await send('ATDPN');
+  log(`Protocol → ${clean(proto).join(' ')}`);
+}
+
+async function pollLoop() {
+  PIDS.forEach(p => { p.fails = 0; p.skip = false; });
+  while (polling) {
+    const t0 = performance.now();
+    const row = { time: new Date().toISOString() };
+
+    for (const p of PIDS) {
+      if (!polling) break;
+      if (p.skip) continue;
+      try {
+        const bytes = parsePid(await send('01' + p.pid, 1500), p.pid);
+        if (bytes && bytes.length >= p.n) {
+          const v = p.f(bytes);
+          row[p.id] = v;
+          setVal(p.id, v.toFixed(p.dp));
+          p.fails = 0;
+        } else if (++p.fails >= 3) {
+          p.skip = true; setVal(p.id, 'n/a'); log(`PID ${p.pid} unsupported, skipping`);
+        }
+      } catch (e) { log(e.message); }
+    }
+
+    if (polling) {
+      try {
+        const v = parseFloat(clean(await send('ATRV'))[0]);
+        if (!isNaN(v)) { row.volts = v; setVal('volts', v.toFixed(1)); }
+      } catch (e) { log(e.message); }
+    }
+
+    rows.push(row);
+    $('csvBtn').disabled = false;
+    const wait = +$('interval').value - (performance.now() - t0);
+    if (wait > 0) await sleep(wait);
+  }
+}
+
+// ---------- Lifecycle ----------
+async function start() {
+  $('connectBtn').disabled = true;
+  try {
+    await connect();
+    setStatus('Initialising…', 'busy');
+    await initElm();
+    setStatus(`Connected: ${device.name || 'adapter'}`, 'on');
+    $('disconnectBtn').disabled = false;
+    await requestWakeLock();
+    polling = true;
+    pollLoop();
+  } catch (e) {
+    log('Error: ' + e.message);
+    setStatus('Disconnected');
+    $('connectBtn').disabled = false;
+    if (device?.gatt.connected) device.gatt.disconnect();
+  }
+}
+
+function stop() {
+  polling = false;
+  if (device?.gatt.connected) device.gatt.disconnect();
+}
+
+function onDisconnected() {
+  polling = false;
+  if (pending) { clearTimeout(pending.timer); pending = null; }
+  writeChar = notifyChar = null;
+  setStatus('Disconnected');
+  $('connectBtn').disabled = false;
+  $('disconnectBtn').disabled = true;
+  wakeLock?.release().catch(() => {});
+  wakeLock = null;
+  log('Disconnected');
+}
+
+async function requestWakeLock() {
+  try { wakeLock = await navigator.wakeLock?.request('screen'); } catch { /* optional */ }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && polling) requestWakeLock();
+});
+
+function downloadCsv() {
+  const cols = ['time', ...PIDS.map(p => p.id), 'volts'];
+  const csv = [cols.join(','), ...rows.map(r => cols.map(c => r[c] ?? '').join(','))].join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = `obd-log-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ---------- Boot ----------
+buildTiles();
+if (!navigator.bluetooth) {
+  $('unsupported').hidden = false;
+  $('connectBtn').disabled = true;
+}
+$('connectBtn').onclick = start;
+$('disconnectBtn').onclick = stop;
+$('csvBtn').onclick = downloadCsv;
+</script>
+</body>
+</html>
