@@ -4,159 +4,274 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b0f14">
+<meta name="mobile-web-app-capable" content="yes">
 <title>OBD Dash</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
 <style>
   :root {
-    --bg: #0b0f14; --panel: #131920; --panel-2: #19212a; --line: #253039;
+    --bg: #0b0f14; --panel: #121820; --panel-2: #18202a; --line: #222c37; --line-2: #2c3845;
     --text: #e8eef4; --muted: #8592a0; --faint: #4a5664;
-    --accent: #3fb950; --accent-soft: rgba(63,185,80,.16);
-    --warn: #d29922; --bad: #f85149; --bad-soft: rgba(248,81,73,.16);
+    --accent: #3fb950; --accent-2: #2ea043; --accent-soft: rgba(63,185,80,.14);
+    --warn: #d29922; --bad: #f85149; --bad-soft: rgba(248,81,73,.14);
+    --radius: 16px;
   }
   * { box-sizing: border-box; }
   html { -webkit-tap-highlight-color: transparent; }
   body {
-    margin: 0 auto; max-width: 1100px; background: var(--bg); color: var(--text);
+    margin: 0; background: var(--bg); color: var(--text);
     font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    padding: 16px; padding-bottom: calc(24px + env(safe-area-inset-bottom));
   }
-  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
-  h1 { font-size: 18px; margin: 0; flex: 1; letter-spacing: .01em; }
-  h2 { font-size: 12px; margin: 22px 2px 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
-  .status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
-  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bad); }
-  .dot.on { background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
-  .dot.busy { background: var(--warn); }
-  button, select {
-    background: var(--panel); color: var(--text); border: 1px solid var(--line);
-    border-radius: 10px; padding: 10px 14px; font: inherit; font-size: 15px;
+  main { max-width: 1100px; margin: 0 auto; padding: 4px 16px calc(96px + env(safe-area-inset-bottom)); }
+  h2 { font-size: 12px; margin: 24px 2px 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
+  h3 { font-size: 15px; margin: 0 0 4px; }
+  button, select, input {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line-2);
+    border-radius: 12px; padding: 10px 14px; font: inherit; font-size: 15px;
   }
+  input { width: 100%; }
   button { cursor: pointer; }
   button.primary { background: var(--accent); color: #04110a; border-color: var(--accent); font-weight: 600; }
   button.danger { border-color: var(--bad); color: var(--bad); background: none; }
   button.ghost { background: none; border-color: transparent; color: var(--muted); padding: 6px 10px; }
   button:disabled { opacity: .45; cursor: default; }
-  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-  .tabs { display: flex; gap: 2px; overflow-x: auto; margin: 0 -16px 16px; padding: 0 16px; border-bottom: 1px solid var(--line); scrollbar-width: none; }
-  .tabs button { border: 0; border-radius: 0; background: none; color: var(--muted); padding: 12px 14px; white-space: nowrap; }
-  .tabs button[aria-selected="true"] { color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+  svg.i { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; }
+  .muted { color: var(--muted); } .ok { color: var(--accent); } .bad { color: var(--bad); }
+
+  /* Top bar */
+  .top { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 10px;
+    padding: calc(10px + env(safe-area-inset-top)) 16px 10px; background: rgba(11,15,20,.88); backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 17px; flex: 1; }
+  .brand svg { width: 26px; height: 26px; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 7px 14px 7px 12px; font-size: 14px; max-width: 58vw; }
+  .chip span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chip.idle { background: var(--accent); color: #04110a; border-color: var(--accent); font-weight: 600; }
+  .chip.idle .dot { background: #04110a; }
+  .icon-btn { padding: 8px; border-radius: 12px; display: inline-flex; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bad); flex: none; }
+  .dot.on { background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+  .dot.busy { background: var(--warn); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+
+  /* Bottom tab bar */
+  .nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; justify-content: center;
+    background: rgba(11,15,20,.92); backdrop-filter: blur(14px); border-top: 1px solid var(--line);
+    padding: 4px 8px calc(4px + env(safe-area-inset-bottom)); }
+  .nav button { flex: 1; max-width: 120px; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    background: none; border: 0; border-radius: 12px; color: var(--muted); font-size: 11px; padding: 8px 0 6px; position: relative; }
+  .nav button[aria-selected="true"] { color: var(--accent); }
+  .nav .badge { position: absolute; top: 4px; left: calc(50% + 6px); min-width: 16px; height: 16px; border-radius: 8px;
+    background: var(--bad); color: #fff; font-size: 10px; font-weight: 700; line-height: 16px; padding: 0 4px; }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 36px 20px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); margin-top: 16px; }
+  .empty svg { width: 120px; height: auto; margin-bottom: 8px; }
+  .empty p { color: var(--muted); max-width: 340px; margin: 6px auto 18px; }
 
   /* Dials */
-  .hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
-  .dial { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 10px 10px 4px; cursor: pointer; }
+  .hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 16px; }
+  .dial { background: radial-gradient(120% 90% at 50% 100%, var(--panel-2), var(--panel)); border: 1px solid var(--line); border-radius: 20px; padding: 10px 10px 2px; cursor: pointer; }
   .dial svg { display: block; width: 100%; height: auto; }
   .dial .track { fill: none; stroke: var(--panel-2); stroke-width: 12; stroke-linecap: round; }
-  .dial .fill { fill: none; stroke: var(--accent); stroke-width: 12; stroke-linecap: round; transition: stroke-dasharray .35s ease-out; }
-  .dial .num { fill: var(--text); font-size: 40px; font-weight: 700; text-anchor: middle; font-variant-numeric: tabular-nums; }
-  .dial .sub { fill: var(--muted); font-size: 13px; text-anchor: middle; text-transform: uppercase; letter-spacing: .08em; }
+  .dial .red { fill: none; stroke: var(--bad-soft); stroke-width: 12; }
+  .dial .fill { fill: none; stroke: url(#dialGrad); stroke-width: 12; stroke-linecap: round; transition: stroke-dasharray .35s ease-out; }
+  .dial.hot .fill { stroke: var(--bad); }
+  .dial .tick { stroke: var(--faint); stroke-width: 2; stroke-linecap: round; }
+  .dial .num { fill: var(--text); font-size: 42px; font-weight: 700; text-anchor: middle; font-variant-numeric: tabular-nums; }
+  .dial .sub { fill: var(--muted); font-size: 12px; text-anchor: middle; text-transform: uppercase; letter-spacing: .1em; }
+  .dial .end { fill: var(--faint); font-size: 11px; text-anchor: middle; }
+
+  /* Glance strip */
+  .glance { display: flex; gap: 8px; overflow-x: auto; margin: 12px -16px 0; padding: 0 16px 2px; scrollbar-width: none; }
+  .glance::-webkit-scrollbar { display: none; }
+  .pill { flex: none; display: inline-flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 999px; padding: 7px 14px; font-size: 14px; cursor: pointer; white-space: nowrap; }
+  .pill b { font-variant-numeric: tabular-nums; }
+  .pill.alert { border-color: var(--bad); color: var(--bad); background: var(--bad-soft); }
 
   /* Tiles */
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 10px; }
-  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 12px 8px; cursor: pointer; min-width: 0; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 12px 8px; cursor: pointer; min-width: 0; transition: border-color .2s; }
   .tile:active { background: var(--panel-2); }
-  .tile .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
+  .tile .bell { width: 12px; height: 12px; stroke-width: 2.5; color: var(--warn); }
   .tile .reading { display: flex; align-items: baseline; gap: 5px; margin-top: 4px; }
   .tile .value { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
   .tile .unit { color: var(--muted); font-size: 13px; }
   .tile canvas { display: block; width: 100%; height: 34px; margin-top: 6px; }
   .tile.na .value { color: var(--faint); font-size: 22px; }
-  .tile.alert { border-color: var(--bad); background: linear-gradient(var(--bad-soft), transparent 60%), var(--panel); }
+  .tile.alert { border-color: var(--bad); background: linear-gradient(var(--bad-soft), transparent 70%), var(--panel); }
   .tile.alert .value { color: var(--bad); }
   .tile.static { cursor: default; }
 
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
-  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 0; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 10px 16px; margin: 0; }
   .kv dt { color: var(--muted); }
   .kv dd { margin: 0; font-variant-numeric: tabular-nums; word-break: break-all; }
   .chart-card canvas { display: block; width: 100%; height: 180px; }
+  .list-row { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+  .list-row:first-child { border-top: 0; padding-top: 0; }
+  .list-row:last-child { padding-bottom: 0; }
+  .list-row .meta { color: var(--muted); font-size: 14px; }
 
-  .dtc { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; border-top: 1px solid var(--line); padding: 12px 0; }
+  /* Performance timer */
+  .perf { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; }
+  .perf .time { font-size: 48px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; line-height: 1; }
+  .perf .state { color: var(--muted); font-size: 14px; grid-column: 1; }
+  .perf button { grid-column: 2; grid-row: 1 / span 2; }
+
+  /* Codes */
+  .dtc { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; border-top: 1px solid var(--line); padding: 14px 0; }
   .dtc:first-child { border-top: 0; padding-top: 0; }
+  .dtc:last-child { padding-bottom: 0; }
   .dtc .code { font: 700 18px ui-monospace, Menlo, Consolas, monospace; margin-right: 8px; }
-  .dtc .kind { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; vertical-align: 2px; }
+  .dtc .kind { font-size: 12px; color: var(--muted); border: 1px solid var(--line-2); border-radius: 999px; padding: 1px 8px; vertical-align: 2px; }
   .dtc .kind.Stored { color: var(--bad); border-color: var(--bad); }
+  .dtc .kind.Pending { color: var(--warn); border-color: var(--warn); }
   .dtc .desc { grid-column: 1; }
-  .dtc .acts { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .dtc .acts { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
   .dtc a { color: var(--accent); font-size: 14px; text-decoration: none; }
-  .ok { color: var(--accent); } .bad { color: var(--bad); } .muted { color: var(--muted); }
-  .pill { display: inline-flex; align-items: center; gap: 8px; }
-  .checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+  .mil { display: flex; align-items: center; gap: 12px; }
+  .mil svg { width: 34px; height: 34px; flex: none; }
+  .checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
   .checks label { display: flex; gap: 8px; align-items: center; }
-  .checks h3 { grid-column: 1 / -1; margin: 8px 0 0; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .checks h3 { grid-column: 1 / -1; margin: 10px 0 0; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }
   .checks h3:first-child { margin-top: 0; }
   input[type="checkbox"] { accent-color: var(--accent); width: 18px; height: 18px; }
 
-  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 18px; padding: 16px; width: min(760px, calc(100vw - 24px)); }
-  dialog::backdrop { background: rgba(0,0,0,.6); }
+  /* Chart dialog */
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line-2); border-radius: 20px; padding: 18px; width: min(760px, calc(100vw - 24px)); }
+  dialog::backdrop { background: rgba(0,0,0,.65); backdrop-filter: blur(3px); }
   .dlg-head { display: flex; align-items: flex-start; gap: 12px; }
   .dlg-head .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
-  .dlg-head .value { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .dlg-head .value { font-size: 42px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
   #dlgCanvas { display: block; width: 100%; height: 240px; margin: 12px 0; }
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
-  .stats div { background: var(--panel-2); border-radius: 10px; padding: 8px; }
+  .stats div { background: var(--panel-2); border-radius: 12px; padding: 8px; }
   .stats b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
   .stats span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
-  .seg { display: inline-flex; background: var(--panel-2); border-radius: 10px; padding: 3px; gap: 2px; }
-  .seg button { border: 0; background: none; padding: 6px 12px; color: var(--muted); border-radius: 8px; font-size: 14px; }
+  .seg { display: inline-flex; background: var(--panel-2); border-radius: 12px; padding: 3px; gap: 2px; }
+  .seg button { border: 0; background: none; padding: 6px 12px; color: var(--muted); border-radius: 9px; font-size: 14px; }
   .seg button[aria-pressed="true"] { background: var(--panel); color: var(--text); }
+  .alert-set { display: grid; grid-template-columns: auto 1fr 1fr; gap: 8px; align-items: center; margin-top: 14px; }
+  .alert-set label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
 
-  details { margin-top: 20px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; }
-  summary { cursor: pointer; color: var(--muted); }
+  /* Drive mode */
+  #drive { position: fixed; inset: 0; z-index: 50; background: #000; display: flex; flex-direction: column;
+    padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom); }
+  #drive[hidden] { display: none; }
+  #drive.alarm { box-shadow: inset 0 0 0 6px var(--bad); }
+  .drive-top { display: flex; align-items: center; gap: 8px; padding: 12px 0; color: var(--muted); }
+  .drive-top .clock { flex: 1; font-variant-numeric: tabular-nums; }
+  .drive-body { flex: 1; display: grid; grid-template-rows: 1fr auto; gap: 12px; min-height: 0; }
+  .drive-main { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; }
+  .drive-speed { font-size: min(40vw, 46vh); font-weight: 800; line-height: .9; font-variant-numeric: tabular-nums; letter-spacing: -.04em; }
+  .drive-unit { color: var(--muted); font-size: 16px; text-transform: uppercase; letter-spacing: .14em; margin-top: 6px; }
+  .drive-rpm { width: min(80vw, 520px); height: 8px; border-radius: 4px; background: var(--panel-2); margin-top: 22px; overflow: hidden; }
+  .drive-rpm div { height: 100%; width: 0; background: var(--accent); border-radius: 4px; transition: width .3s ease-out; }
+  .drive-rpm.hot div { background: var(--bad); }
+  .drive-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding-bottom: 16px; }
+  .drive-slot { background: #0b0f14; border: 1px solid var(--line); border-radius: 18px; padding: 14px 8px; text-align: center; cursor: pointer; }
+  .drive-slot .v { font-size: min(10vw, 11vh); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.05; }
+  .drive-slot .l { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; margin-top: 4px; }
+  .drive-slot.alert { border-color: var(--bad); color: var(--bad); }
+  #drive.hud .drive-body { transform: scaleX(-1); }
+  #drive.hud .drive-speed, #drive.hud .drive-slot .v { color: #8dff9e; }
+  @media (orientation: landscape) {
+    .drive-body { grid-template-columns: 1.5fr 1fr; grid-template-rows: 1fr; }
+    .drive-row { grid-template-columns: 1fr; align-content: center; padding-bottom: 0; }
+    .drive-speed { font-size: min(26vw, 58vh); }
+  }
+
+  .toast { position: fixed; left: 50%; top: calc(64px + env(safe-area-inset-top)); transform: translateX(-50%); z-index: 60;
+    background: var(--bad); color: #fff; font-weight: 600; border-radius: 14px; padding: 12px 18px; box-shadow: 0 8px 30px rgba(0,0,0,.5);
+    max-width: calc(100vw - 32px); }
+  .toast.good { background: var(--accent-2); }
+  details summary { cursor: pointer; color: var(--muted); }
   #log { font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; max-height: 40vh; overflow: auto; margin-top: 8px; }
-  .notice { background: var(--bad-soft); border: 1px solid var(--bad); border-radius: 10px; padding: 12px; margin-bottom: 16px; }
-  .empty { color: var(--muted); text-align: center; padding: 28px 12px; }
+  .notice { background: var(--bad-soft); border: 1px solid var(--bad); border-radius: 12px; padding: 12px; margin-top: 16px; }
 </style>
 </head>
 <body>
-<header>
-  <h1>OBD Dash</h1>
-  <div class="status"><span class="dot" id="dot"></span><span id="statusText">Disconnected</span></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="dialGrad" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#2ea043"/><stop offset="1" stop-color="#56d364"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#18202a"/><path d="M8 21a9 9 0 1 1 16 0" fill="none" stroke="#3fb950" stroke-width="3" stroke-linecap="round"/><path d="M16 18l5-5" stroke="#e8eef4" stroke-width="2.5" stroke-linecap="round"/></svg>
+    OBD Dash
+  </div>
+  <button class="chip idle" id="connBtn"><span class="dot" id="dot"></span><span id="statusText">Connect</span></button>
+  <button class="icon-btn" id="driveBtn" title="Drive mode" aria-label="Drive mode">
+    <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/><path d="M3.5 10.5h6.5M14 10.5h6.5M12 14v7"/></svg>
+  </button>
 </header>
 
+<main>
 <div id="unsupported" class="notice" hidden>
   Web Bluetooth isn't available here. Open this page in Chrome on Android, served over HTTPS (or localhost).
 </div>
 
-<div class="controls">
-  <button class="primary" id="connectBtn">Connect</button>
-  <button id="disconnectBtn" disabled>Disconnect</button>
-</div>
-
-<nav class="tabs" role="tablist">
-  <button role="tab" data-tab="live" aria-selected="true">Live</button>
-  <button role="tab" data-tab="trip">Trip</button>
-  <button role="tab" data-tab="codes">Codes</button>
-  <button role="tab" data-tab="vehicle">Vehicle</button>
-  <button role="tab" data-tab="settings">Settings</button>
-</nav>
-
 <section id="tab-live">
+  <div class="empty" id="liveEmpty">
+    <svg viewBox="0 0 200 110" aria-hidden="true"><path d="M30.7 100 A80 80 0 1 1 169.3 100" fill="none" stroke="#18202a" stroke-width="12" stroke-linecap="round"/><path d="M30.7 100 A80 80 0 0 1 100 0" fill="none" stroke="#3fb950" stroke-width="12" stroke-linecap="round" transform="translate(0,6)"/></svg>
+    <h3>Ready when you are</h3>
+    <p>Plug in the adapter, turn the ignition on, then tap Connect. Tap any gauge later to see its chart.</p>
+    <button class="primary" id="emptyConnectBtn">Connect</button>
+  </div>
   <div class="hero" id="hero"></div>
+  <div class="glance" id="glance"></div>
   <div id="groups"></div>
-  <p class="empty" id="liveHint">Connect to see the gauges your car supports. Tap any gauge for its chart.</p>
 </section>
 
 <section id="tab-trip" hidden>
+  <h2>This trip</h2>
   <div class="grid" id="tripGrid"></div>
+  <p class="muted" id="fuelNote"></p>
   <h2>Speed this trip</h2>
   <div class="card chart-card"><canvas id="tripChart"></canvas></div>
   <div class="controls">
-    <button id="tripResetBtn">Reset trip</button>
+    <button id="tripResetBtn">End trip and start new</button>
     <button id="csvBtn" disabled>Download CSV</button>
   </div>
-  <p class="muted" id="fuelNote"></p>
+  <h2 id="perfTitle">0–100 km/h timer</h2>
+  <div class="card perf">
+    <div class="time" id="perfTime">–.–– s</div>
+    <div class="state" id="perfState">Arm the timer, stop, then accelerate.</div>
+    <button class="primary" id="perfBtn" disabled>Arm</button>
+  </div>
+  <p class="muted" style="font-size:14px">Timing is approximate (about ±0.3 s) because OBD-II speed updates a few times a second. Only time runs where it's safe and legal.</p>
+  <h2>Past trips</h2>
+  <div class="card" id="tripHistory"><span class="muted">No saved trips yet. Trips save when you end them, or on their own after 30 minutes parked.</span></div>
+  <button class="ghost" id="clearTripsBtn" hidden>Clear trip history</button>
 </section>
 
 <section id="tab-codes" hidden>
-  <div class="card"><span id="milText" class="muted">Check-engine light: unknown</span></div>
-  <div class="controls">
+  <div class="card mil" id="milCard">
+    <svg viewBox="0 0 24 24" class="i muted" id="milIcon"><path d="M4 10h2l2-3h6l1 2h3v3h2v-2h1v6h-1v-2h-2v3h-3l-2 2H8l-2-3H4z"/></svg>
+    <div><div id="milText">Check-engine light: unknown</div><div class="muted" style="font-size:14px" id="milSub">Connect, then read codes.</div></div>
+  </div>
+  <div class="controls" style="margin-bottom:12px">
     <button class="primary" id="readCodesBtn" disabled>Read codes</button>
     <button class="danger" id="clearCodesBtn" disabled>Clear all codes</button>
   </div>
   <div class="card" id="dtcList"><span class="muted">No scan yet.</span></div>
-  <p class="muted" id="dtcNote"></p>
+  <div id="freezeWrap" hidden>
+    <h2>Freeze frame</h2>
+    <div class="card"><p class="muted" style="margin:0 0 10px" id="freezeTitle"></p><dl class="kv" id="freeze"></dl></div>
+  </div>
+  <p class="muted" style="font-size:14px">Hide only removes a code from this list. Cars can only clear every code at once, so Clear all codes is how you turn off the check-engine light.</p>
 </section>
 
 <section id="tab-vehicle" hidden>
+  <h2>Vehicle</h2>
   <div class="card"><dl class="kv" id="vehInfo"></dl></div>
   <h2>Readiness monitors</h2>
   <div class="card"><dl class="kv" id="readiness"><dt class="muted">Not read yet</dt><dd></dd></dl></div>
@@ -164,8 +279,9 @@
 </section>
 
 <section id="tab-settings" hidden>
+  <h2>Display</h2>
   <div class="card">
-    <dl class="kv">
+    <dl class="kv" style="align-items:center">
       <dt>Units</dt>
       <dd><select id="units"><option value="metric">Metric</option><option value="imperial">Imperial (US)</option></select></dd>
       <dt>Refresh</dt>
@@ -175,12 +291,31 @@
         <option value="1000">Every 1 s</option>
         <option value="2000">Every 2 s</option>
       </select></dd>
+      <dt>Alert sound</dt>
+      <dd><select id="sound"><option value="on">On</option><option value="off">Off</option></select></dd>
     </dl>
   </div>
+  <div class="card" id="installCard" hidden>
+    <div style="display:flex; align-items:center; gap:12px">
+      <div style="flex:1"><h3>Install the app</h3><div class="muted" style="font-size:14px">Opens full screen from your home screen, like a normal app.</div></div>
+      <button class="primary" id="installBtn">Install</button>
+    </div>
+  </div>
   <h2>Gauges to show</h2>
-  <p class="muted">Fewer gauges means faster updates. Once connected, only gauges your car reports are listed.</p>
+  <p class="muted" style="font-size:14px">Fewer gauges means faster updates. Open a gauge's chart to set an alert on it.</p>
   <div class="card checks" id="gaugePicker"></div>
+  <h2>Connection</h2>
+  <div class="card"><details><summary>Connection log</summary><div id="log"></div></details></div>
 </section>
+</main>
+
+<nav class="nav" role="tablist">
+  <button role="tab" data-tab="live" aria-selected="true"><svg class="i" viewBox="0 0 24 24"><path d="M3.3 18a10 10 0 1 1 17.4 0"/><path d="M12 14l4.5-4.5"/></svg>Live</button>
+  <button role="tab" data-tab="trip"><svg class="i" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Trip</button>
+  <button role="tab" data-tab="codes"><svg class="i" viewBox="0 0 24 24"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 17v.01"/></svg>Codes<span class="badge" id="codeBadge" hidden></span></button>
+  <button role="tab" data-tab="vehicle"><svg class="i" viewBox="0 0 24 24"><path d="M3 13l2.2-6h13.6L21 13v5H3z"/><path d="M3 13h18"/><circle cx="7.5" cy="15.5" r=".5"/><circle cx="16.5" cy="15.5" r=".5"/></svg>Car</button>
+  <button role="tab" data-tab="settings"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg>Settings</button>
+</nav>
 
 <dialog id="chartDlg">
   <div class="dlg-head">
@@ -191,22 +326,38 @@
     <button class="ghost" id="dlgClose" aria-label="Close">✕</button>
   </div>
   <canvas id="dlgCanvas"></canvas>
-  <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px">
-    <div class="seg" id="dlgRange">
-      <button data-s="60">1 min</button><button data-s="300" aria-pressed="true">5 min</button><button data-s="900">15 min</button>
-    </div>
+  <div class="seg" id="dlgRange" style="margin-bottom:12px">
+    <button data-s="60">1 min</button><button data-s="300" aria-pressed="true">5 min</button><button data-s="900">15 min</button>
   </div>
   <div class="stats">
     <div><b id="dlgMin">–</b><span>Min</span></div>
     <div><b id="dlgAvg">–</b><span>Avg</span></div>
     <div><b id="dlgMax">–</b><span>Max</span></div>
   </div>
+  <div class="alert-set">
+    <span class="muted">Alert</span>
+    <label>Above <input type="number" inputmode="decimal" id="alAbove" placeholder="off"></label>
+    <label>Below <input type="number" inputmode="decimal" id="alBelow" placeholder="off"></label>
+  </div>
 </dialog>
 
-<details>
-  <summary>Log</summary>
-  <div id="log"></div>
-</details>
+<div id="drive" hidden>
+  <div class="drive-top">
+    <span class="clock" id="driveClock"></span>
+    <button class="ghost" id="hudBtn">HUD</button>
+    <button class="ghost" id="driveClose" aria-label="Exit drive mode">✕</button>
+  </div>
+  <div class="drive-body">
+    <div class="drive-main">
+      <div class="drive-speed" id="driveSpeed">–</div>
+      <div class="drive-unit" id="driveUnit">km/h</div>
+      <div class="drive-rpm" id="driveRpm"><div></div></div>
+    </div>
+    <div class="drive-row" id="driveRow"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
 
 <script>
 // ---------- Config ----------
@@ -275,15 +426,17 @@ const DERIVED = [
 const GAUGES = [...PIDS, ...DERIVED];
 const gauge = id => GAUGES.find(x => x.id === id);
 const DEFAULT_HIDDEN = ['o2b1s2', 'o2b2s1', 'o2b2s2', 'lambda', 'absload', 'relthr', 'torque', 'milDist', 'clrDist', 'baro', 'stft2', 'ltft2', 'ecuvolts'];
+const GLANCE = ['coolant', 'volts', 'fuel', 'econ'];
+const FREEZE_PIDS = ['0C', '0D', '05', '04', '06', '07', '0B', '0F', '11', '10'];
 
 const UNITS = {
-  speed: { m: 'km/h',    i: 'mph',   f: v => v * 0.621371 },
-  dist:  { m: 'km',      i: 'mi',    f: v => v * 0.621371 },
-  temp:  { m: '°C',      i: '°F',    f: v => v * 9 / 5 + 32 },
-  pres:  { m: 'kPa',     i: 'psi',   f: v => v * 0.145038, idp: 1 },
-  econ:  { m: 'L/100km', i: 'mpg',   f: v => v > 0 ? 235.215 / v : 0 },
-  vol:   { m: 'L',       i: 'gal',   f: v => v * 0.264172, idp: 2 },
-  flow:  { m: 'L/h',     i: 'gal/h', f: v => v * 0.264172, idp: 2 },
+  speed: { m: 'km/h',    i: 'mph',   f: v => v * 0.621371,  inv: v => v / 0.621371 },
+  dist:  { m: 'km',      i: 'mi',    f: v => v * 0.621371,  inv: v => v / 0.621371 },
+  temp:  { m: '°C',      i: '°F',    f: v => v * 9 / 5 + 32, inv: v => (v - 32) * 5 / 9 },
+  pres:  { m: 'kPa',     i: 'psi',   f: v => v * 0.145038,  inv: v => v / 0.145038, idp: 1 },
+  econ:  { m: 'L/100km', i: 'mpg',   f: v => v > 0 ? 235.215 / v : 0, inv: v => v > 0 ? 235.215 / v : 0 },
+  vol:   { m: 'L',       i: 'gal',   f: v => v * 0.264172,  inv: v => v / 0.264172, idp: 2 },
+  flow:  { m: 'L/h',     i: 'gal/h', f: v => v * 0.264172,  inv: v => v / 0.264172, idp: 2 },
 };
 
 const PROTOCOLS = {
@@ -486,9 +639,13 @@ function dtcFallback(code) {
 let device = null, writeChar = null, notifyChar = null;
 let polling = false, wakeLock = null;
 let connecting = false, userStopped = false, retryTimer = null;
+let connState = 'idle';          // idle | busy | on
 const SAVED_KEY = 'obd-dash.deviceId';
 const SETTINGS_KEY = 'obd-dash.settings';
+const TRIP_KEY = 'obd-dash.trip';
+const TRIPS_KEY = 'obd-dash.trips';
 const RETRY_MS = 5000;
+const TRIP_GAP_MS = 30 * 60 * 1000; // parked this long = a new trip
 const HISTORY_S = 900;        // seconds of history kept per gauge for charts
 const SPARK_S = 120;          // seconds shown in each tile's sparkline
 let rxBuf = '', pending = null, chain = Promise.resolve();
@@ -502,11 +659,16 @@ const cur = {};                // latest metric values by gauge id
 const hist = {};               // id -> [[ms, metric value], ...]
 const vehicle = {};            // Vehicle tab fields
 let lastCodes = [];            // last scan: [{ code, kind }]
-let settings = { units: 'metric', interval: 500, hidden: DEFAULT_HIDDEN, dismissed: [] };
-try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch { /* optional */ }
-const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* optional */ } };
+let settings = {
+  units: 'metric', interval: 500, hidden: DEFAULT_HIDDEN, dismissed: [], alerts: {}, sound: 'on',
+  driveSlots: ['rpm', 'coolant', 'econ'], hud: false, perfBest: {},
+};
+const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* optional */ } };
+Object.assign(settings, load(SETTINGS_KEY, {}));
+const saveSettings = () => store(SETTINGS_KEY, settings);
 
-const trip = { start: null, last: null, moving: 0, dist: 0, fuel: 0, fuelKnown: false, maxSpeed: 0, maxRpm: 0, series: [], bucket: [] };
+const trip = { startedAt: null, updatedAt: null, last: null, moving: 0, dist: 0, fuel: 0, fuelKnown: false, maxSpeed: 0, maxRpm: 0, series: [], bucket: [] };
 
 // ---------- Helpers ----------
 const $ = id => document.getElementById(id);
@@ -516,30 +678,80 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 const isCan = () => /^[6-9A-C]$/.test(protocol);
 const isDiesel = () => fuelType === 4 || fuelType === 19 || fuelType === 23 || vehicle.compression;
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const imperial = () => settings.units === 'imperial';
 
 function unitLabel(u) {
-  if (UNITS[u]) return UNITS[u][settings.units === 'imperial' ? 'i' : 'm'];
+  if (UNITS[u]) return UNITS[u][imperial() ? 'i' : 'm'];
   return u === 'time' ? '' : u;
 }
-const conv = (u, v) => (UNITS[u] && settings.units === 'imperial') ? UNITS[u].f(v) : v;
+const conv = (u, v) => (UNITS[u] && imperial()) ? UNITS[u].f(v) : v;
+const unconv = (u, v) => (UNITS[u] && imperial()) ? UNITS[u].inv(v) : v;
+const dpFor = g => (UNITS[g.u] && imperial() ? UNITS[g.u].idp : null) ?? g.dp ?? 0;
 function fmt(g, v) {
   if (v == null || Number.isNaN(v)) return '–';
   if (g.u === 'time') {
     const h = Math.floor(v / 3600), m = Math.floor(v / 60) % 60, s = Math.floor(v % 60);
     return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0');
   }
-  const c = UNITS[g.u];
-  const dp = c && settings.units === 'imperial' ? (c.idp ?? g.dp) : g.dp;
-  return conv(g.u, v).toFixed(dp ?? 0);
+  return conv(g.u, v).toFixed(dpFor(g));
+}
+function fmtDuration(s) {
+  const h = Math.floor(s / 3600), m = Math.round(s / 60) % 60;
+  return h ? `${h} h ${m} min` : `${Math.max(1, m)} min`;
 }
 function log(msg) {
   const el = $('log');
   el.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
   el.scrollTop = el.scrollHeight;
 }
-function setStatus(text, state) {
+// state: idle (tap to connect), busy (tap to cancel) or on (tap to disconnect)
+function setStatus(text, state = 'idle') {
+  connState = state;
   $('statusText').textContent = text;
-  $('dot').className = 'dot' + (state ? ' ' + state : '');
+  $('dot').className = 'dot' + (state === 'idle' ? '' : ' ' + state);
+  $('connBtn').className = 'chip' + (state === 'idle' ? ' idle' : '');
+}
+
+// ---------- Alerts ----------
+let actx = null;
+document.addEventListener('pointerdown', () => { try { actx ||= new AudioContext(); } catch { /* optional */ } });
+function beep() {
+  if (!actx || settings.sound === 'off') return;
+  [0, 0.22].forEach(at => {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.frequency.value = 880; o.type = 'sine';
+    g.gain.setValueAtTime(0.0001, actx.currentTime + at);
+    g.gain.exponentialRampToValueAtTime(0.3, actx.currentTime + at + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + at + 0.18);
+    o.connect(g).connect(actx.destination);
+    o.start(actx.currentTime + at); o.stop(actx.currentTime + at + 0.2);
+  });
+}
+let toastTimer = null;
+function toast(msg, good = false) {
+  $('toast').textContent = msg; $('toast').hidden = false;
+  $('toast').classList.toggle('good', good);
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').hidden = true; }, 5000);
+}
+const customBreach = (id, v) => {
+  const a = settings.alerts[id];
+  if (!a || v == null) return null;
+  if (a.above != null && v > a.above) return 'high';
+  if (a.below != null && v < a.below) return 'low';
+  return null;
+};
+const isAlert = (g, v) => v != null && (!!g.warn?.(v) || !!customBreach(g.id, v));
+const alarmState = {};
+function checkAlarm(id, v) {
+  const breach = customBreach(id, v);
+  const was = alarmState[id];
+  alarmState[id] = breach;
+  $('drive').classList.toggle('alarm', Object.values(alarmState).some(Boolean));
+  if (!breach || was) return;
+  const g = gauge(id);
+  toast(`${g.label} ${breach}: ${fmt(g, v)} ${unitLabel(g.u)}`);
+  navigator.vibrate?.([200, 100, 200]);
+  beep();
 }
 
 // ---------- Charts ----------
@@ -558,7 +770,8 @@ function prep(canvas) {
 }
 
 // pts: [[ms, value]] already in display units. axes: draw gridlines and labels.
-function drawSeries(canvas, pts, { spanMs, color, axes = false, fmtY = v => v.toFixed(0), fmtX } = {}) {
+// lines: optional horizontal reference lines (e.g. alert thresholds) in display units.
+function drawSeries(canvas, pts, { spanMs, color, axes = false, fmtY = v => v.toFixed(0), fmtX, lines = [] } = {}) {
   const c = prep(canvas);
   if (!c) return;
   const { ctx, w, h } = c;
@@ -569,16 +782,13 @@ function drawSeries(canvas, pts, { spanMs, color, axes = false, fmtY = v => v.to
   const vis = pts.filter(p => p[0] >= t0);
   const padL = axes ? 44 : 1, padR = axes ? 8 : 1, padT = axes ? 10 : 3, padB = axes ? 22 : 3;
   const pw = w - padL - padR, ph = h - padT - padB;
-  if (axes) {
-    ctx.font = '11px system-ui, sans-serif';
-    ctx.fillStyle = css('--muted');
-  }
+  if (axes) { ctx.font = '11px system-ui, sans-serif'; ctx.fillStyle = css('--muted'); }
   if (vis.length < 2) {
     if (axes) { ctx.textAlign = 'center'; ctx.fillText('Collecting data…', w / 2, h / 2); }
     else { ctx.strokeStyle = css('--line'); ctx.beginPath(); ctx.moveTo(0, h - 2); ctx.lineTo(w, h - 2); ctx.stroke(); }
     return;
   }
-  let lo = Math.min(...vis.map(p => p[1])), hi = Math.max(...vis.map(p => p[1]));
+  let lo = Math.min(...vis.map(p => p[1]), ...lines), hi = Math.max(...vis.map(p => p[1]), ...lines);
   if (hi - lo < 1e-6) { lo -= 1; hi += 1; }
   const pad = (hi - lo) * 0.12; lo -= pad; hi += pad;
   const X = t => padL + (t - t0) / Math.max(1, t1 - t0) * pw;
@@ -595,6 +805,9 @@ function drawSeries(canvas, pts, { spanMs, color, axes = false, fmtY = v => v.to
     const xl = fmtX || (t => { const s = Math.round((t1 - t) / 1000); return s ? `-${s >= 60 ? Math.round(s / 60) + 'm' : s + 's'}` : 'now'; });
     ctx.textAlign = 'left'; ctx.fillText(xl(t0), padL, h - 4);
     ctx.textAlign = 'right'; ctx.fillText(xl(t1), w - padR, h - 4);
+    ctx.setLineDash([4, 4]); ctx.strokeStyle = css('--warn');
+    lines.forEach(v => { ctx.beginPath(); ctx.moveTo(padL, Y(v)); ctx.lineTo(w - padR, Y(v)); ctx.stroke(); });
+    ctx.setLineDash([]);
   }
 
   ctx.beginPath();
@@ -606,7 +819,6 @@ function drawSeries(canvas, pts, { spanMs, color, axes = false, fmtY = v => v.to
   const grad = ctx.createLinearGradient(0, padT, 0, padT + ph);
   grad.addColorStop(0, color + '40'); grad.addColorStop(1, color + '00');
   ctx.fillStyle = grad; ctx.fill();
-  // end dot
   const [lt, lv] = vis[vis.length - 1];
   ctx.beginPath(); ctx.arc(X(lt), Y(lv), axes ? 3.5 : 2.5, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
 }
@@ -623,51 +835,74 @@ const shown = g => available(g) && !settings.hidden.includes(g.id);
 
 // Dials: 240° arc; pathLength=100 lets stroke-dasharray act as a percentage.
 const ARC = 'M30.7 140 A80 80 0 1 1 169.3 140';
+const REDLINE = 85; // % of the dial where the RPM red zone starts
 function dialMax(id) {
   if (id === 'rpm') return Math.max(isDiesel() ? 5000 : 8000, trip.maxRpm);
-  return conv('speed', Math.max(200, trip.maxSpeed));
+  return Math.round(conv('speed', Math.max(200, trip.maxSpeed)));
+}
+function ticks() {
+  let s = '';
+  for (let k = 0; k <= 10; k++) {
+    const a = (150 + 24 * k) * Math.PI / 180, r1 = k % 5 ? 64 : 60, r2 = 68;
+    s += `<line class="tick" x1="${(100 + r1 * Math.cos(a)).toFixed(1)}" y1="${(100 + r1 * Math.sin(a)).toFixed(1)}" x2="${(100 + r2 * Math.cos(a)).toFixed(1)}" y2="${(100 + r2 * Math.sin(a)).toFixed(1)}"/>`;
+  }
+  return s;
 }
 function buildLive() {
-  $('hero').innerHTML = GAUGES.filter(g => g.hero && shown(g)).map(g => `
-    <div class="dial" data-id="${g.id}">
+  const connected = !!supported || polling;
+  $('liveEmpty').hidden = connected;
+  $('hero').innerHTML = !connected ? '' : GAUGES.filter(g => g.hero && shown(g)).map(g => `
+    <div class="dial" data-id="${g.id}" id="t-${g.id}">
       <svg viewBox="0 0 200 160" role="img" aria-label="${g.label}">
         <path class="track" d="${ARC}" pathLength="100"/>
+        ${g.id === 'rpm' ? `<path class="red" d="${ARC}" pathLength="100" stroke-dasharray="0 ${REDLINE} ${100 - REDLINE} 100"/>` : ''}
+        ${ticks()}
         <path class="fill" id="arc-${g.id}" d="${ARC}" pathLength="100" stroke-dasharray="0 100"/>
         <text class="num" x="100" y="112" id="v-${g.id}">–</text>
-        <text class="sub" x="100" y="136">${unitLabel(g.u) === g.label.toLowerCase() ? g.label : g.label + ' · ' + unitLabel(g.u)}</text>
+        <text class="sub" x="100" y="134">${unitLabel(g.u) === g.label.toLowerCase() ? g.label : unitLabel(g.u)}</text>
+        <text class="end" x="31" y="157">0</text>
+        <text class="end" x="169" y="157">${g.id === 'rpm' ? dialMax(g.id) / 1000 + 'k' : dialMax(g.id)}</text>
       </svg>
     </div>`).join('');
-  $('groups').innerHTML = GROUPS.map(([gid, title]) => {
+  $('glance').innerHTML = !connected ? '' : GLANCE.map(gauge).filter(shown).map(g => `
+    <div class="pill" data-id="${g.id}" id="p-${g.id}"><span class="muted">${g.label}</span><b id="pv-${g.id}">–</b><span class="muted">${unitLabel(g.u)}</span></div>`).join('')
+    + `<div class="pill" id="p-mil" data-tab-link="codes"><span class="dot${vehicle.mil ? '' : ' on'}"></span><span>${vehicle.mil == null ? 'Codes' : vehicle.mil ? 'Check engine' : 'No warnings'}</span></div>`;
+  $('groups').innerHTML = !connected ? '' : GROUPS.map(([gid, title]) => {
     const items = GAUGES.filter(g => g.g === gid && !g.hero && shown(g));
     if (!items.length) return '';
     return `<h2>${title}</h2><div class="grid">${items.map(g => `
       <div class="tile" id="t-${g.id}" data-id="${g.id}">
-        <div class="label">${g.label}</div>
+        <div class="label">${g.label}${settings.alerts[g.id] ? '<svg class="i bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/></svg>' : ''}</div>
         <div class="reading"><span class="value" id="v-${g.id}">–</span><span class="unit">${unitLabel(g.u)}</span></div>
         <canvas id="c-${g.id}"></canvas>
       </div>`).join('')}</div>`;
   }).join('');
-  $('liveHint').hidden = !!supported;
   GAUGES.forEach(g => { if (cur[g.id] != null || g.skip) paint(g.id); });
   buildPicker();
+  buildDrive();
+  drawSparks();
 }
 
 function paint(id) {
   const g = gauge(id), v = cur[id];
+  const text = g.skip ? 'n/a' : id === 'econ' && cur.econIdle ? 'idle' : fmt(g, v);
+  const alert = !g.skip && isAlert(g, v);
   const el = $('v-' + id);
-  if (!el) return;
-  if (g.skip) { el.textContent = 'n/a'; $('t-' + id)?.classList.add('na'); return; }
-  el.textContent = id === 'econ' && cur.econIdle ? 'idle' : fmt(g, v);
+  if (el) el.textContent = text;
   const tile = $('t-' + id);
   if (tile) {
-    tile.classList.remove('na');
-    tile.classList.toggle('alert', v != null && !!g.warn?.(v));
+    tile.classList.toggle('na', !!g.skip);
+    tile.classList.toggle('alert', alert);
   }
+  const pv = $('pv-' + id);
+  if (pv) { pv.textContent = text; $('p-' + id).classList.toggle('alert', alert); }
   const arc = $('arc-' + id);
   if (arc && v != null) {
     const p = Math.max(0, Math.min(100, conv(g.u, v) / dialMax(id) * 100));
     arc.setAttribute('stroke-dasharray', `${p.toFixed(1)} 100`);
+    tile?.classList.toggle('hot', id === 'rpm' && p >= REDLINE);
   }
+  paintDrive(id);
 }
 function drawSparks() {
   if ($('tab-live').hidden) return;
@@ -675,8 +910,7 @@ function drawSparks() {
   GAUGES.forEach(g => {
     const cv = $('c-' + g.id);
     if (!cv) return;
-    const alert = $('t-' + g.id)?.classList.contains('alert');
-    drawSeries(cv, displayPts(g.id), { spanMs: SPARK_S * 1000, color: alert ? bad : accent });
+    drawSeries(cv, displayPts(g.id), { spanMs: SPARK_S * 1000, color: $('t-' + g.id)?.classList.contains('alert') ? bad : accent });
   });
 }
 
@@ -687,6 +921,7 @@ function setVal(id, v) {
     const h = hist[id] || (hist[id] = []);
     h.push([now, v]);
     while (h.length && h[0][0] < now - HISTORY_S * 1000) h.shift();
+    checkAlarm(id, v);
   }
   paint(id);
   if (dlgId === id) drawDialog();
@@ -699,6 +934,10 @@ function openChart(id) {
   const g = gauge(id);
   $('dlgLabel').textContent = g.label;
   $('dlgUnit').textContent = unitLabel(g.u);
+  const a = settings.alerts[id] || {};
+  const show = v => v == null ? '' : +conv(g.u, v).toFixed(Math.max(dpFor(g), 1));
+  $('alAbove').value = show(a.above);
+  $('alBelow').value = show(a.below);
   $('chartDlg').showModal();
   drawDialog();
 }
@@ -706,17 +945,33 @@ function drawDialog() {
   const g = gauge(dlgId);
   $('dlgValue').textContent = g.skip ? 'n/a' : fmt(g, cur[dlgId]);
   const pts = displayPts(dlgId).filter(p => p[0] >= Date.now() - dlgSpan * 1000);
-  const dp = (UNITS[g.u] && settings.units === 'imperial' ? UNITS[g.u].idp : null) ?? g.dp ?? 0;
+  const dp = dpFor(g);
   const f = v => g.u === 'time' ? fmt(g, v) : v.toFixed(dp);
   const vals = pts.map(p => p[1]);
   $('dlgMin').textContent = vals.length ? f(Math.min(...vals)) : '–';
   $('dlgMax').textContent = vals.length ? f(Math.max(...vals)) : '–';
   $('dlgAvg').textContent = vals.length ? f(vals.reduce((a, b) => a + b, 0) / vals.length) : '–';
-  const alert = cur[dlgId] != null && g.warn?.(cur[dlgId]);
-  drawSeries($('dlgCanvas'), pts, { spanMs: dlgSpan * 1000, color: css(alert ? '--bad' : '--accent'), axes: true, fmtY: v => g.u === 'time' ? fmt(g, v) : v.toFixed(Math.min(dp, 1)) });
+  const a = settings.alerts[dlgId] || {};
+  const lines = [a.above, a.below].filter(v => v != null).map(v => conv(g.u, v));
+  drawSeries($('dlgCanvas'), pts, {
+    spanMs: dlgSpan * 1000, color: css(isAlert(g, cur[dlgId]) ? '--bad' : '--accent'), axes: true, lines,
+    fmtY: v => g.u === 'time' ? fmt(g, v) : v.toFixed(Math.min(dp, 1)),
+  });
 }
+function saveAlert() {
+  const g = gauge(dlgId);
+  const read = el => el.value.trim() === '' ? null : unconv(g.u, parseFloat(el.value));
+  const above = read($('alAbove')), below = read($('alBelow'));
+  if (above == null && below == null) delete settings.alerts[dlgId];
+  else settings.alerts[dlgId] = { above, below };
+  saveSettings();
+  alarmState[dlgId] = null;
+  drawDialog();
+}
+$('alAbove').onchange = saveAlert;
+$('alBelow').onchange = saveAlert;
 $('dlgClose').onclick = () => $('chartDlg').close();
-$('chartDlg').addEventListener('close', () => { dlgId = null; });
+$('chartDlg').addEventListener('close', () => { dlgId = null; buildLive(); });
 $('chartDlg').addEventListener('click', e => { if (e.target === $('chartDlg')) $('chartDlg').close(); });
 $('dlgRange').addEventListener('click', e => {
   const s = +e.target.dataset.s;
@@ -726,9 +981,67 @@ $('dlgRange').addEventListener('click', e => {
   drawDialog();
 });
 $('tab-live').addEventListener('click', e => {
+  if (e.target.closest('[data-tab-link]')) return showTab('codes');
   const el = e.target.closest('[data-id]');
   if (el) openChart(el.dataset.id);
 });
+
+// ---------- Drive mode ----------
+function driveChoices() { return GAUGES.filter(g => g.id !== 'speed' && available(g)); }
+function buildDrive() {
+  const choices = driveChoices();
+  settings.driveSlots = settings.driveSlots.map((id, i) =>
+    choices.some(g => g.id === id) ? id : (choices[i] || choices[0])?.id).filter(Boolean);
+  $('driveRow').innerHTML = settings.driveSlots.map((id, i) => {
+    const g = gauge(id), u = unitLabel(g.u);
+    return `<div class="drive-slot" data-slot="${i}" id="ds-${i}"><div class="v">–</div><div class="l">${g.label}${u && u !== g.label.toLowerCase() ? ' · ' + u : ''}</div></div>`;
+  }).join('');
+  $('driveUnit').textContent = unitLabel('speed');
+  $('drive').classList.toggle('hud', !!settings.hud);
+  ['speed', 'rpm', ...settings.driveSlots].forEach(paintDrive);
+}
+function paintDrive(id) {
+  if ($('drive').hidden) return;
+  const g = gauge(id), v = cur[id];
+  if (id === 'speed') $('driveSpeed').textContent = fmt(g, v);
+  if (id === 'rpm' && v != null) {
+    const p = Math.min(100, v / dialMax('rpm') * 100);
+    $('driveRpm').firstElementChild.style.width = p + '%';
+    $('driveRpm').classList.toggle('hot', p >= REDLINE);
+  }
+  settings.driveSlots.forEach((sid, i) => {
+    if (sid !== id) return;
+    const slot = $('ds-' + i);
+    if (!slot) return;
+    slot.firstElementChild.textContent = g.skip ? 'n/a' : id === 'econ' && cur.econIdle ? 'idle' : fmt(g, v);
+    slot.classList.toggle('alert', isAlert(g, v));
+  });
+}
+$('driveRow').addEventListener('click', e => {
+  const slot = e.target.closest('[data-slot]');
+  if (!slot) return;
+  const i = +slot.dataset.slot, choices = driveChoices();
+  const at = choices.findIndex(g => g.id === settings.driveSlots[i]);
+  settings.driveSlots[i] = choices[(at + 1) % choices.length].id;
+  saveSettings();
+  buildDrive();
+});
+function tickClock() { $('driveClock').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+let clockTimer = null;
+function openDrive() {
+  $('drive').hidden = false;
+  buildDrive(); tickClock();
+  clockTimer = setInterval(tickClock, 10000);
+  document.documentElement.requestFullscreen?.().catch(() => {});
+}
+function closeDrive() {
+  $('drive').hidden = true;
+  clearInterval(clockTimer);
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+}
+$('driveBtn').onclick = openDrive;
+$('driveClose').onclick = closeDrive;
+$('hudBtn').onclick = () => { settings.hud = !settings.hud; saveSettings(); buildDrive(); };
 
 // ---------- Settings: gauge picker ----------
 function buildPicker() {
@@ -747,9 +1060,24 @@ $('gaugePicker').addEventListener('change', e => {
 });
 
 // ---------- Trip tab ----------
+function tripSummary() {
+  const secs = (trip.updatedAt - trip.startedAt) / 1000;
+  return { start: trip.startedAt, secs, dist: trip.dist, moving: trip.moving, maxSpeed: trip.maxSpeed, fuel: trip.fuelKnown ? trip.fuel : null };
+}
+function saveTrip() { if (trip.startedAt) store(TRIP_KEY, { ...trip, last: null, bucket: [] }); }
+// Move the current trip into history (if it went anywhere) and start fresh.
+function archiveTrip() {
+  if (trip.startedAt && trip.dist > 0.1) {
+    const trips = load(TRIPS_KEY, []);
+    trips.unshift(tripSummary());
+    store(TRIPS_KEY, trips.slice(0, 50));
+  }
+  Object.assign(trip, { startedAt: null, updatedAt: null, last: null, moving: 0, dist: 0, fuel: 0, fuelKnown: false, maxSpeed: 0, maxRpm: 0, series: [], bucket: [] });
+  try { localStorage.removeItem(TRIP_KEY); } catch { /* optional */ }
+  if (polling) trip.startedAt = trip.updatedAt = Date.now();
+}
 function renderTrip() {
-  const now = performance.now();
-  const secs = trip.start ? (now - trip.start) / 1000 : 0;
+  const secs = trip.startedAt ? ((trip.updatedAt || Date.now()) - trip.startedAt) / 1000 : 0;
   const avg = trip.moving > 0 ? trip.dist / (trip.moving / 3600) : null;
   const econ = trip.fuelKnown && trip.dist > 0.1 ? trip.fuel / trip.dist * 100 : null;
   const tiles = [
@@ -768,15 +1096,78 @@ function renderTrip() {
   $('fuelNote').textContent = !supported || available(gauge('econ')) ? '' :
     isDiesel() ? 'Fuel use needs the fuel-rate PID (5E), which this diesel doesn\'t report.'
                : 'Fuel use needs the fuel-rate (5E) or mass air flow (10) PID, which this car doesn\'t report.';
-  const pts = trip.series.map(([t, v]) => [t, conv('speed', v)]);
-  drawSeries($('tripChart'), pts, {
+  drawSeries($('tripChart'), trip.series.map(([t, v]) => [t, conv('speed', v)]), {
     color: css('--accent'), axes: true,
     fmtX: t => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
   });
+  renderPerf();
+  renderHistory();
 }
-function resetTrip() {
-  Object.assign(trip, { start: polling ? performance.now() : null, last: null, moving: 0, dist: 0, fuel: 0, fuelKnown: false, maxSpeed: 0, maxRpm: 0, series: [], bucket: [] });
-  renderTrip();
+function renderHistory() {
+  const trips = load(TRIPS_KEY, []);
+  $('clearTripsBtn').hidden = !trips.length;
+  if (!trips.length) return;
+  $('tripHistory').innerHTML = trips.slice(0, 20).map(t => {
+    const avg = t.moving > 0 ? t.dist / (t.moving / 3600) : null;
+    const econ = t.fuel != null && t.dist > 0.1 ? t.fuel / t.dist * 100 : null;
+    const when = new Date(t.start).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return `<div class="list-row"><div><div>${when}</div><div class="meta">${fmtDuration(t.secs)}${avg ? ` · avg ${fmt({ u: 'speed', dp: 0 }, avg)} ${unitLabel('speed')}` : ''}${econ ? ` · ${fmt({ u: 'econ', dp: 1 }, econ)} ${unitLabel('econ')}` : ''}</div></div>
+      <div style="text-align:right; white-space:nowrap"><b>${fmt({ u: 'dist', dp: 1 }, t.dist)}</b> <span class="muted">${unitLabel('dist')}</span></div></div>`;
+  }).join('');
+}
+$('clearTripsBtn').onclick = () => {
+  if (!confirm('Delete all saved trips? This can\'t be undone.')) return;
+  store(TRIPS_KEY, []);
+  $('tripHistory').innerHTML = '<span class="muted">No saved trips yet.</span>';
+  renderHistory();
+};
+$('tripResetBtn').onclick = () => { archiveTrip(); renderTrip(); };
+
+// ---------- Performance timer ----------
+const perf = { state: 'off', target: 100, zeroT: null, t0: null, lastT: null, lastV: null, result: null };
+const perfKey = () => imperial() ? '0-60mph' : '0-100kmh';
+const perfName = () => imperial() ? '0–60 mph' : '0–100 km/h';
+function renderPerf() {
+  $('perfTitle').textContent = perfName() + ' timer';
+  $('perfBtn').disabled = !polling || !available(gauge('speed'));
+  $('perfBtn').textContent = perf.state === 'armed' || perf.state === 'running' ? 'Cancel' : 'Arm';
+  const best = settings.perfBest[perfKey()];
+  const msg = {
+    off: 'Arm the timer, stop, then accelerate.',
+    armed: (cur.speed ?? 1) > 0 ? 'Armed. Come to a full stop.' : 'Ready. Go when it\'s safe.',
+    running: 'Timing…',
+    done: 'Done.',
+  }[perf.state];
+  $('perfState').textContent = msg + (best ? ` Best: ${best.toFixed(2)} s.` : '');
+  if (perf.state === 'running') $('perfTime').textContent = ((performance.now() - perf.t0) / 1000).toFixed(1) + ' s';
+  else if (perf.result != null) $('perfTime').textContent = perf.result.toFixed(2) + ' s';
+  else $('perfTime').textContent = '–.–– s';
+}
+$('perfBtn').onclick = () => {
+  if (perf.state === 'armed' || perf.state === 'running') perf.state = 'off';
+  else Object.assign(perf, { state: 'armed', target: imperial() ? 60 / 0.621371 : 100, zeroT: null, result: null, lastT: null, lastV: null });
+  renderPerf();
+};
+// Called with each speed reading while the timer is armed or running.
+function perfTick(v, t) {
+  if (perf.state === 'armed') {
+    if (v === 0) perf.zeroT = t;
+    else if (perf.zeroT != null) { perf.state = 'running'; perf.t0 = perf.zeroT; }
+  }
+  if (perf.state === 'running') {
+    if (v === 0) { perf.state = 'armed'; perf.zeroT = t; }
+    else if (v >= perf.target) {
+      // Interpolate the moment the target speed was crossed between samples.
+      const cross = perf.lastV != null && v > perf.lastV ? perf.lastT + (perf.target - perf.lastV) / (v - perf.lastV) * (t - perf.lastT) : t;
+      perf.result = (cross - perf.t0) / 1000;
+      perf.state = 'done';
+      const k = perfKey();
+      if (!settings.perfBest[k] || perf.result < settings.perfBest[k]) { settings.perfBest[k] = perf.result; saveSettings(); }
+      toast(`${perfName()}: ${perf.result.toFixed(2)} s`, true);
+    }
+  }
+  perf.lastT = t; perf.lastV = v;
+  if (!$('tab-trip').hidden) renderPerf();
 }
 
 // ---------- Vehicle tab ----------
@@ -784,7 +1175,7 @@ function renderVehicle() {
   const items = [
     ['VIN', vehicle.vin], ['Fuel type', vehicle.fuel], ['OBD standard', vehicle.standard],
     ['Protocol', vehicle.protocol], ['Adapter', vehicle.adapter], ['Supported PIDs', supported ? supported.size : null],
-    ['Run time since start', cur.runtime != null ? fmt({ u: 'time' }, cur.runtime) : null],
+    ['Engine run time', cur.runtime != null ? fmt({ u: 'time' }, cur.runtime) : null],
     ['Distance since codes cleared', cur.clrDist != null ? fmt({ u: 'dist', dp: 0 }, cur.clrDist) + ' ' + unitLabel('dist') : null],
   ];
   $('vehInfo').innerHTML = items.map(([k, v]) => `<dt>${k}</dt><dd>${v == null || v === '' ? '<span class="muted">–</span>' : esc(v)}</dd>`).join('');
@@ -795,18 +1186,21 @@ function renderVehicle() {
 }
 
 function setConnectedUi(on) {
-  $('connectBtn').hidden = on;
   ['readCodesBtn', 'clearCodesBtn', 'vehRefreshBtn'].forEach(id => { $(id).disabled = !on; });
+  renderPerf();
 }
 
-document.querySelector('.tabs').addEventListener('click', e => {
-  const tab = e.target.dataset?.tab;
-  if (!tab) return;
-  document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab));
+function showTab(tab) {
+  document.querySelectorAll('.nav button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab));
   document.querySelectorAll('section[id^="tab-"]').forEach(s => { s.hidden = s.id !== 'tab-' + tab; });
+  window.scrollTo(0, 0);
   if (tab === 'live') drawSparks();
   if (tab === 'trip') renderTrip();
   if (tab === 'vehicle') renderVehicle();
+}
+document.querySelector('.nav').addEventListener('click', e => {
+  const tab = e.target.closest('[data-tab]')?.dataset.tab;
+  if (tab) showTab(tab);
 });
 window.addEventListener('resize', () => { drawSparks(); if (!$('tab-trip').hidden) renderTrip(); if (dlgId) drawDialog(); });
 
@@ -906,13 +1300,15 @@ function messages(resp) {
 }
 const toBytes = h => { const b = []; for (let j = 0; j + 1 < h.length; j += 2) b.push(parseInt(h.substr(j, 2), 16)); return b; };
 
-function parsePid(resp, pid) {
+// Data bytes after a reply header such as "410C" (Mode 01) or "420C00" (Mode 02, frame 0).
+function parseReply(resp, head) {
   for (const m of messages(resp)) {
-    const i = m.indexOf('41' + pid);
-    if (i >= 0) return toBytes(m.slice(i + 4));
+    const i = m.indexOf(head);
+    if (i >= 0) return toBytes(m.slice(i + head.length));
   }
   return null;
 }
+const parsePid = (resp, pid) => parseReply(resp, '41' + pid);
 
 // ---------- ELM327 ----------
 async function initElm() {
@@ -1008,9 +1404,13 @@ async function readStatus() {
   names.forEach((n, k) => { if (n) mons.push([n, state(C & (1 << k), D & (1 << k))]); });
   vehicle.monitors = mons;
   const s = vehicle.dtcCount === 1 ? '' : 's';
-  $('milText').innerHTML = vehicle.mil
-    ? `<span class="pill"><span class="dot"></span><span class="bad">Check-engine light is on</span></span> · ${vehicle.dtcCount} stored code${s}`
-    : `<span class="pill"><span class="dot on"></span><span class="ok">Check-engine light is off</span></span> · ${vehicle.dtcCount} stored code${s}`;
+  $('milIcon').setAttribute('class', 'i ' + (vehicle.mil ? 'bad' : 'ok'));
+  $('milText').innerHTML = vehicle.mil ? '<b class="bad">Check-engine light is on</b>' : '<b class="ok">Check-engine light is off</b>';
+  $('milSub').textContent = `${vehicle.dtcCount} stored code${s} reported by the engine computer`;
+  $('codeBadge').hidden = !vehicle.dtcCount;
+  $('codeBadge').textContent = vehicle.dtcCount;
+  const pill = $('p-mil');
+  if (pill) pill.innerHTML = `<span class="dot${vehicle.mil ? '' : ' on'}"></span><span>${vehicle.mil ? 'Check engine' : 'No warnings'}</span>`;
 }
 
 // ---------- Trouble codes ----------
@@ -1044,13 +1444,32 @@ function renderCodes() {
       </div>
     </div>`).join('') : `<span class="${lastCodes.length ? 'muted' : 'ok'}">${lastCodes.length ? 'All codes are hidden.' : 'No trouble codes found.'}</span>`)
     + (hiddenCount ? `<div style="margin-top:10px"><button class="ghost" id="showHiddenBtn">Show ${hiddenCount} hidden code${hiddenCount === 1 ? '' : 's'}</button></div>` : '');
-  $('dtcNote').textContent = 'Hide only removes a code from this list. The car can only clear all codes at once, so Clear all codes is the way to turn off the check-engine light.';
 }
 $('dtcList').addEventListener('click', e => {
   const code = e.target.dataset?.dismiss;
   if (code) { settings.dismissed.push(code); saveSettings(); renderCodes(); }
   if (e.target.id === 'showHiddenBtn') { settings.dismissed = []; saveSettings(); renderCodes(); }
 });
+// Mode 02 frame 0: the engine's snapshot from the moment a code was stored.
+async function readFreezeFrame() {
+  $('freezeWrap').hidden = true;
+  try {
+    const b = parseReply(await send('0202', 3000), '420200');
+    if (!b || b.length < 2 || (b[0] === 0 && b[1] === 0)) return;
+    const code = decodeDtc(hx(b[0]) + hx(b[1]));
+    const items = [];
+    for (const pid of FREEZE_PIDS) {
+      if (supported && !supported.has(parseInt(pid, 16))) continue;
+      const g = PIDS.find(p => p.pid === pid);
+      const d = parseReply(await send('02' + pid + '00', 1500), '42' + pid + '00');
+      if (d && d.length >= g.n) items.push([g, g.f(d)]);
+    }
+    if (!items.length) return;
+    $('freezeTitle').textContent = `What the engine was doing when ${code} was stored:`;
+    $('freeze').innerHTML = items.map(([g, v]) => `<dt>${g.label}</dt><dd>${fmt(g, v)} <span class="muted">${unitLabel(g.u)}</span></dd>`).join('');
+    $('freezeWrap').hidden = false;
+  } catch (e) { log(e.message); }
+}
 async function readCodes() {
   $('readCodesBtn').disabled = true;
   $('dtcList').innerHTML = '<span class="muted">Reading…</span>';
@@ -1064,6 +1483,7 @@ async function readCodes() {
   log(`Codes: ${found.map(f => f.code).join(', ') || 'none'}`);
   lastCodes = found;
   renderCodes();
+  await readFreezeFrame();
   $('readCodesBtn').disabled = !writeChar;
 }
 async function clearCodes() {
@@ -1086,6 +1506,7 @@ async function pollGauge(p, row) {
     row[p.id] = v;
     setVal(p.id, v);
     p.fails = 0;
+    if (p.id === 'speed' && (perf.state === 'armed' || perf.state === 'running')) perfTick(v, performance.now());
   } else if (++p.fails >= 3) {
     p.skip = true; paint(p.id); log(`PID ${p.pid} unsupported, skipping`);
   }
@@ -1108,6 +1529,7 @@ function updateDerived(row) {
     if (lph != null) { trip.fuel += lph * dt / 3600; trip.fuelKnown = true; }
   }
   trip.last = now;
+  trip.updatedAt = Date.now();
   trip.maxSpeed = Math.max(trip.maxSpeed, cur.speed ?? 0);
   trip.maxRpm = Math.max(trip.maxRpm, cur.rpm ?? 0);
   // Trip chart: one averaged speed point every 10 s, so long trips stay light.
@@ -1117,6 +1539,7 @@ function updateDerived(row) {
     if (Date.now() - lastT >= 10000) {
       trip.series.push([Date.now(), trip.bucket.reduce((a, b) => a + b, 0) / trip.bucket.length]);
       trip.bucket = [];
+      saveTrip();
     }
   }
   if (lph != null && (cur.speed ?? 0) > 5) { cur.econIdle = false; row.econ = lph / cur.speed * 100; setVal('econ', row.econ); }
@@ -1125,12 +1548,20 @@ function updateDerived(row) {
 
 async function pollLoop() {
   PIDS.forEach(p => { p.fails = 0; p.skip = false; });
-  if (!trip.start) trip.start = performance.now();
+  if (trip.updatedAt && Date.now() - trip.updatedAt > TRIP_GAP_MS) archiveTrip();
+  if (!trip.startedAt) trip.startedAt = Date.now();
   trip.last = null;
   let cycle = 0;
   while (polling) {
     const t0 = performance.now();
     const row = { time: new Date().toISOString() };
+    if (perf.state === 'armed' || perf.state === 'running') {
+      // Performance timer: read only speed, as fast as the adapter allows.
+      if (gauge('speed').skip) { perf.state = 'off'; renderPerf(); continue; }
+      await pollGauge(gauge('speed'), row);
+      updateDerived(row);
+      continue;
+    }
     const active = PIDS.filter(shown);
     // The trip needs speed, rpm and fuel data even when those gauges are hidden.
     const needed = PIDS.filter(p => ['speed', 'rpm', 'fuelrate', 'maf', 'map'].includes(p.id) && available(p) && !active.includes(p));
@@ -1141,7 +1572,7 @@ async function pollLoop() {
     for (let k = 0; k < Math.min(2, slow.length) && polling; k++) {
       await pollGauge(slow[slowIdx++ % slow.length], row);
     }
-    if (polling && cycle % 5 === 0 && shown(gauge('volts'))) {
+    if (polling && cycle % 5 === 0 && (shown(gauge('volts')) || GLANCE.includes('volts'))) {
       try {
         const v = parseFloat(clean(await send('ATRV'))[0]);
         if (!isNaN(v)) { row.volts = v; setVal('volts', v); }
@@ -1165,29 +1596,25 @@ async function start(known) {
   if (connecting) return false;
   connecting = true;
   clearTimeout(retryTimer);
-  $('connectBtn').disabled = true;
   try {
     await connect(known);
-    setStatus('Initialising…', 'busy');
-    $('disconnectBtn').disabled = true;
+    setStatus('Starting…', 'busy');
     await initElm();
     setStatus('Reading car…', 'busy');
     await detectSupported();
     await readVehicleInfo();
-    buildLive();
-    setStatus(`Connected: ${device.name || 'adapter'}`, 'on');
+    setStatus(device.name || 'Connected', 'on');
     try { localStorage.setItem(SAVED_KEY, device.id); } catch { /* optional */ }
     userStopped = false;
-    $('disconnectBtn').disabled = false;
+    polling = true;
+    buildLive();
     setConnectedUi(true);
     await requestWakeLock();
-    polling = true;
     pollLoop();
     return true;
   } catch (e) {
     log('Error: ' + e.message);
-    setStatus('Disconnected');
-    $('connectBtn').disabled = false;
+    setStatus('Connect');
     if (device?.gatt.connected) device.gatt.disconnect();
     return false;
   } finally {
@@ -1199,23 +1626,31 @@ function stop() {
   userStopped = true;
   clearTimeout(retryTimer);
   polling = false;
+  saveTrip();
   if (device?.gatt.connected) device.gatt.disconnect();
-  else { setStatus('Disconnected'); $('disconnectBtn').disabled = true; }
+  else setStatus('Connect');
 }
 
 function onDisconnected() {
   polling = false;
   if (pending) { clearTimeout(pending.timer); pending = null; }
   writeChar = notifyChar = null;
-  setStatus('Disconnected');
+  setStatus('Connect');
   setConnectedUi(false);
-  $('connectBtn').disabled = false;
-  $('disconnectBtn').disabled = true;
   wakeLock?.release().catch(() => {});
   wakeLock = null;
+  saveTrip();
   log('Disconnected');
   if (!userStopped && device) scheduleReconnect(device);
 }
+
+function onConnTap() {
+  if (connState === 'idle') { userStopped = true; clearTimeout(retryTimer); start(); }
+  else if (connState === 'busy') stop();
+  else if (confirm('Disconnect from the adapter?')) stop();
+}
+$('connBtn').onclick = onConnTap;
+$('emptyConnectBtn').onclick = () => { if (connState === 'idle') onConnTap(); };
 
 // ---------- Auto-connect ----------
 // Chrome remembers adapters the user picked before; getDevices() returns them
@@ -1223,8 +1658,7 @@ function onDisconnected() {
 function scheduleReconnect(dev) {
   clearTimeout(retryTimer);
   if (userStopped) return;
-  setStatus(`Looking for ${dev.name || 'adapter'}…`, 'busy');
-  $('disconnectBtn').disabled = false; // lets the user cancel the search
+  setStatus(`Looking for ${dev.name || 'adapter'}…`, 'busy'); // tap cancels the search
   retryTimer = setTimeout(async () => {
     if (userStopped || polling || connecting) return;
     if (!(await start(dev))) scheduleReconnect(dev);
@@ -1250,6 +1684,7 @@ async function requestWakeLock() {
 }
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && polling) requestWakeLock();
+  if (document.visibilityState === 'hidden') saveTrip();
 });
 
 function downloadCsv() {
@@ -1263,22 +1698,38 @@ function downloadCsv() {
   URL.revokeObjectURL(a.href);
 }
 
+// ---------- Install as an app ----------
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; $('installCard').hidden = false; });
+$('installBtn').onclick = async () => {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  await installPrompt.userChoice;
+  installPrompt = null; $('installCard').hidden = true;
+};
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+
 // ---------- Boot ----------
+// Resume the trip in progress unless the car has been parked a while.
+const savedTrip = load(TRIP_KEY, null);
+if (savedTrip?.startedAt) {
+  Object.assign(trip, savedTrip, { last: null, bucket: [] });
+  if (Date.now() - (trip.updatedAt || 0) > TRIP_GAP_MS) archiveTrip();
+}
 $('units').value = settings.units;
 $('interval').value = String(settings.interval);
+$('sound').value = settings.sound;
 $('units').onchange = e => { settings.units = e.target.value; saveSettings(); buildLive(); renderTrip(); renderVehicle(); };
 $('interval').onchange = e => { settings.interval = +e.target.value; saveSettings(); };
+$('sound').onchange = e => { settings.sound = e.target.value; saveSettings(); };
 buildLive();
 renderTrip();
 renderVehicle();
 if (!navigator.bluetooth) {
   $('unsupported').hidden = false;
-  $('connectBtn').disabled = true;
+  $('connBtn').disabled = $('emptyConnectBtn').disabled = true;
 }
-$('connectBtn').onclick = () => { userStopped = true; clearTimeout(retryTimer); start(); };
-$('disconnectBtn').onclick = stop;
 $('csvBtn').onclick = downloadCsv;
-$('tripResetBtn').onclick = resetTrip;
 $('readCodesBtn').onclick = readCodes;
 $('clearCodesBtn').onclick = clearCodes;
 $('vehRefreshBtn').onclick = () => readVehicleInfo();
