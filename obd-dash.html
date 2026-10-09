@@ -93,6 +93,9 @@ const EXTRA = [{ id: 'volts', label: 'Battery', unit: 'V' }];
 // ---------- State ----------
 let device = null, writeChar = null, notifyChar = null;
 let polling = false, wakeLock = null;
+let connecting = false, userStopped = false, retryTimer = null;
+const SAVED_KEY = 'obd-dash.deviceId';
+const RETRY_MS = 5000;
 let rxBuf = '', pending = null, chain = Promise.resolve();
 const rows = [];
 const enc = new TextEncoder(), dec = new TextDecoder();
@@ -123,12 +126,15 @@ function log(msg) {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ---------- BLE transport ----------
-async function connect() {
-  device = await navigator.bluetooth.requestDevice({
+async function connect(known) {
+  device = known || await navigator.bluetooth.requestDevice({
     acceptAllDevices: true,
     optionalServices: SERVICE_CANDIDATES,
   });
-  device.addEventListener('gattserverdisconnected', onDisconnected);
+  if (!device._listening) {
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+    device._listening = true;
+  }
   setStatus('Connecting…', 'busy');
   const server = await device.gatt.connect();
 
@@ -266,28 +272,42 @@ async function pollLoop() {
 }
 
 // ---------- Lifecycle ----------
-async function start() {
+// known: a previously paired device to reconnect to without the picker.
+async function start(known) {
+  if (connecting) return false;
+  connecting = true;
+  clearTimeout(retryTimer);
   $('connectBtn').disabled = true;
   try {
-    await connect();
+    await connect(known);
     setStatus('Initialising…', 'busy');
+    $('disconnectBtn').disabled = true;
     await initElm();
     setStatus(`Connected: ${device.name || 'adapter'}`, 'on');
+    try { localStorage.setItem(SAVED_KEY, device.id); } catch { /* optional */ }
+    userStopped = false;
     $('disconnectBtn').disabled = false;
     await requestWakeLock();
     polling = true;
     pollLoop();
+    return true;
   } catch (e) {
     log('Error: ' + e.message);
     setStatus('Disconnected');
     $('connectBtn').disabled = false;
     if (device?.gatt.connected) device.gatt.disconnect();
+    return false;
+  } finally {
+    connecting = false;
   }
 }
 
 function stop() {
+  userStopped = true;
+  clearTimeout(retryTimer);
   polling = false;
   if (device?.gatt.connected) device.gatt.disconnect();
+  else { setStatus('Disconnected'); $('disconnectBtn').disabled = true; }
 }
 
 function onDisconnected() {
@@ -300,6 +320,35 @@ function onDisconnected() {
   wakeLock?.release().catch(() => {});
   wakeLock = null;
   log('Disconnected');
+  if (!userStopped && device) scheduleReconnect(device);
+}
+
+// ---------- Auto-connect ----------
+// Chrome remembers adapters the user picked before; getDevices() returns them
+// and gatt.connect() works on them without a tap.
+function scheduleReconnect(dev) {
+  clearTimeout(retryTimer);
+  if (userStopped) return;
+  setStatus(`Looking for ${dev.name || 'adapter'}…`, 'busy');
+  $('disconnectBtn').disabled = false; // lets the user cancel the search
+  retryTimer = setTimeout(async () => {
+    if (userStopped || polling || connecting) return;
+    if (!(await start(dev))) scheduleReconnect(dev);
+  }, RETRY_MS);
+}
+
+async function autoConnect() {
+  if (!navigator.bluetooth.getDevices) {
+    log('Auto-connect unavailable: this browser has no getDevices(). Tap Connect.');
+    return;
+  }
+  const devices = await navigator.bluetooth.getDevices();
+  if (!devices.length) return;
+  let saved = null;
+  try { saved = localStorage.getItem(SAVED_KEY); } catch { /* optional */ }
+  const dev = devices.find(d => d.id === saved) || devices[0];
+  log(`Auto-connecting to ${dev.name || dev.id}`);
+  if (!(await start(dev))) scheduleReconnect(dev);
 }
 
 async function requestWakeLock() {
@@ -325,8 +374,9 @@ if (!navigator.bluetooth) {
   $('unsupported').hidden = false;
   $('connectBtn').disabled = true;
 }
-$('connectBtn').onclick = start;
+$('connectBtn').onclick = () => { userStopped = true; clearTimeout(retryTimer); start(); };
 $('disconnectBtn').onclick = stop;
+if (navigator.bluetooth) autoConnect().catch(e => log('Auto-connect: ' + e.message));
 $('csvBtn').onclick = downloadCsv;
 </script>
 </body>

@@ -21,6 +21,7 @@ A web app (PWA) running in Chrome on a **Pixel 7** that reads live data from an 
 - Init sequence: `ATZ`, `ATE0`, `ATL0`, `ATS0`, `ATH0`, `ATAT1`, `ATSP0`, then `0100` (protocol search) and `ATDPN`. `ATSP6` (CAN 11-bit 500k) should work on the LC200 and is faster than auto-detect.
 - Polls Mode 01 PIDs 0C, 0D, 05, 0F, 04, 0B, plus `ATRV` for voltage. Skips a PID after 3 failed reads.
 - Screen Wake Lock, plus CSV download of the logged rows.
+- Auto-connect: on load, `navigator.bluetooth.getDevices()` returns adapters picked before; it reconnects to the last one (id in localStorage) without the picker, and retries every 5 s after an unexpected drop until Disconnect is tapped.
 - **Not yet tested on the car.**
 
 ## Next steps / ideas
