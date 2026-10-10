@@ -50,6 +50,10 @@
   .chip.idle { background: var(--accent); color: #04110a; border-color: var(--accent); font-weight: 600; }
   .chip.idle .dot { background: #04110a; }
   .icon-btn { padding: 8px; border-radius: 12px; display: inline-flex; }
+  /* Link back to kanealex.com, kept quieter than the real controls. */
+  .home-btn { color: var(--muted); padding: 6px; margin-left: -6px; text-decoration: none; }
+  .home-btn svg.i { width: 20px; height: 20px; }
+  .home-btn:hover { color: var(--text); }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bad); flex: none; }
   .dot.on { background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
   .dot.busy { background: var(--warn); animation: pulse 1.2s ease-in-out infinite; }
@@ -204,6 +208,9 @@
 </svg>
 
 <header class="top">
+  <a class="icon-btn home-btn" href="https://kanealex.com" title="More projects at kanealex.com" aria-label="kanealex.com home">
+    <svg class="i" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 9.5V20h12V9.5"/></svg>
+  </a>
   <div class="brand">
     <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#18202a"/><path d="M8 21a9 9 0 1 1 16 0" fill="none" stroke="#3fb950" stroke-width="3" stroke-linecap="round"/><path d="M16 18l5-5" stroke="#e8eef4" stroke-width="2.5" stroke-linecap="round"/></svg>
     OBD Dash
