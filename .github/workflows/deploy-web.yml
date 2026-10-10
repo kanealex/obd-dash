@@ -1,0 +1,28 @@
+name: Deploy web dashboard
+
+# Runs on every push to main that touches the web app: pulls the latest main
+# into /var/www/obd-dash on the Vultr server, which Caddy serves at
+# obd.kanealex.com. Android-only changes are left to android-apk.yml.
+# Uses the same deploy-only SSH key as Semantic Drift (DEPLOY_SSH_KEY secret).
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "android/**"
+      - ".github/workflows/android-apk.yml"
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull latest main on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            git -C /var/www/obd-dash pull --ff-only
+            git -C /var/www/obd-dash log -1 --oneline
